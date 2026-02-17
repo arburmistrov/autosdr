@@ -1,0 +1,1 @@
+Thanks for connecting, {first_name}. We run a focused AI prototyping workshop for enterprise leaders to evaluate high-impact use cases, architecture/governance implications, and actionable next steps. If useful, I can share a 1-page outline tailored to {company_name}.

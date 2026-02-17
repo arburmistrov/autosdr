@@ -1,0 +1,20 @@
+Subject: Idée d'atelier GenAI pour {company_name}
+
+Bonjour {first_name},
+
+je vous contacte car votre rôle chez {company_name} semble fortement lié à {why_fit}.
+
+Nous animons un atelier exécutif de prototypage IA pour :
+- identifier les cas d'usage à fort impact,
+- valider les options via prototypage en direct,
+- clarifier les enjeux architecture, sécurité et gouvernance,
+- définir des prochaines étapes concrètes.
+
+Point de départ possible dans votre contexte : {ai_use_case_hypothesis}.
+
+Si pertinent, nous pouvons faire un fit-check de 20 minutes.
+
+Si ce n'est pas prioritaire, répondez simplement "not now" et je n'insisterai pas.
+
+Bien à vous,
+{sender_name}

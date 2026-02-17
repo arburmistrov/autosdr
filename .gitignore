@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local browser profile/cache
+.pw-linkedin/
+
+# Local env files
+.env
+.env.*
+!.env.pipedrive.template
+
+# Generated outputs
+/data/output/*.csv
+/data/output/*.json
+/data/output/*.html
+
+# OS
+.DS_Store

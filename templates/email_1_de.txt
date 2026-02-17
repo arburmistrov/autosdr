@@ -1,0 +1,20 @@
+Subject: GenAI-Workshop-Idee für {company_name}
+
+Hi {first_name},
+
+ich melde mich, weil Ihre Rolle bei {company_name} eng mit {why_fit} verbunden ist.
+
+Wir führen einen Executive AI Prototyping Workshop durch, in dem wir
+- priorisierte Use Cases identifizieren,
+- Optionen per Live-Prototyping validieren,
+- Architektur-, Sicherheits- und Governance-Fragen klären,
+- konkrete nächste Schritte festlegen.
+
+Möglicher Startpunkt in Ihrem Kontext: {ai_use_case_hypothesis}.
+
+Wenn relevant, können wir in einem 20-minütigen Fit-Check prüfen, ob es für Sie passt.
+
+Falls aktuell kein Fokus: kurze Antwort "not now" genügt, dann melde ich mich nicht weiter.
+
+Beste Grüße,
+{sender_name}

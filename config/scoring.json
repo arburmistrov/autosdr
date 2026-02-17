@@ -1,0 +1,26 @@
+{
+  "weights": {
+    "fit_icp": 40,
+    "role_seniority": 25,
+    "ai_signal": 20,
+    "reachability": 15
+  },
+  "segments": [
+    "FSI",
+    "Pharma/MedTech",
+    "Industrial",
+    "Retail/Services",
+    "Tech-enabled services",
+    "Other"
+  ],
+  "role_keywords": [
+    "director",
+    "vp",
+    "chief",
+    "cdo",
+    "cto",
+    "cio",
+    "head"
+  ],
+  "language_default": "EN"
+}

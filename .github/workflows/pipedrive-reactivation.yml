@@ -1,0 +1,76 @@
+name: Pipedrive Reactivation Daily
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 8 * * 1-5' # Weekdays 08:00 UTC
+
+jobs:
+  run-reactivation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      PIPEDRIVE_DOMAIN: ${{ secrets.PIPEDRIVE_DOMAIN }}
+      PIPEDRIVE_API_TOKEN: ${{ secrets.PIPEDRIVE_API_TOKEN }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      SMTP_SENDER: ${{ secrets.SMTP_SENDER }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install dnspython
+
+      - name: Build queue (stale > 240 days)
+        run: |
+          python scripts/pipedrive_reactivation.py build-queue \
+            --output data/output/pipedrive_reactivation_queue.csv \
+            --stale-days 240
+
+      - name: Rank and prioritize top 20%
+        run: |
+          python scripts/pipedrive_reactivation.py rank-queue \
+            --queue data/output/pipedrive_reactivation_queue.csv \
+            --output data/output/pipedrive_reactivation_queue_ranked_full.csv \
+            --top-percent 20
+
+      - name: Send daily batch (clean + top20)
+        run: |
+          python scripts/pipedrive_reactivation.py send-daily \
+            --queue data/output/pipedrive_reactivation_queue_ranked_full.csv \
+            --daily-limit 30 \
+            --stage-gap-days 4 \
+            --signature "Arseniy Burmistrov\nBusiness Development, S-PRO" \
+            --clean-only \
+            --top-bucket-only \
+            --top-percent 20 \
+            --send
+
+      - name: Generate dashboard
+        run: |
+          python scripts/pipedrive_reactivation.py report \
+            --queue data/output/pipedrive_reactivation_queue_ranked_full.csv \
+            --top-percent 20 \
+            --output-json data/output/reactivation_dashboard.json \
+            --output-html data/output/reactivation_dashboard.html
+
+      - name: Upload dashboard artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: reactivation-dashboard
+          path: |
+            data/output/reactivation_dashboard.json
+            data/output/reactivation_dashboard.html
+          if-no-files-found: warn

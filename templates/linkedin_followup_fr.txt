@@ -1,0 +1,1 @@
+Merci pour la connexion, {first_name}. Nous accompagnons les équipes enterprise via un workshop GenAI focalisé : priorisation des cas d'usage, évaluation des risques (architecture/gouvernance) et validation rapide par prototypes. Si utile, je peux partager une note d'une page adaptée à {company_name}.

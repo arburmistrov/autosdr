@@ -1,0 +1,1 @@
+Hi {first_name}, ich habe Ihre Rolle bei {company_name} gesehen, insbesondere rund um {why_fit_short}. Wir unterstützen Enterprise-Teams dabei, GenAI-Ideen in einem Executive-Workshop schnell mit Prototypen zu validieren. Darf ich mich vernetzen?

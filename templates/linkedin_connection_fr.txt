@@ -1,0 +1,1 @@
+Bonjour {first_name}, j'ai remarqué votre rôle chez {company_name}, notamment autour de {why_fit_short}. Nous aidons les équipes enterprise à valider rapidement des cas d'usage GenAI via un workshop exécutif. Ouvert(e) à une connexion ?

@@ -1,0 +1,1 @@
+Danke für die Vernetzung, {first_name}. Wir begleiten Enterprise-Teams mit einem fokussierten GenAI-Workshop: Use Cases priorisieren, Risiken (Architektur/Governance) bewerten und schnell in validierte Prototypen überführen. Wenn hilfreich, teile ich gern eine 1-Seiten-Skizze für {company_name}.

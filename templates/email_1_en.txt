@@ -1,0 +1,20 @@
+Subject: GenAI workshop idea for {company_name}
+
+Hi {first_name},
+
+I am reaching out because your role in {company_name} looks closely tied to {why_fit}.
+
+We run a senior-level AI Prototyping and Execution Workshop where we:
+- identify high-impact business/operational use cases,
+- validate options through live prototyping,
+- assess architecture, security, and governance implications,
+- leave the team with clear next steps.
+
+A potential starting point for your context: {ai_use_case_hypothesis}.
+
+If relevant, we can do a short 20-minute fit check and confirm if this is worth a full session.
+
+If now is not a priority, reply "not now" and I will not follow up.
+
+Best regards,
+{sender_name}

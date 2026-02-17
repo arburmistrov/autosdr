@@ -1,0 +1,1 @@
+Hi {first_name}, noticed your role in {company_name} and your focus on {why_fit_short}. We help enterprise teams move from GenAI ideas to validated prototypes in one executive workshop. Open to connect?
