@@ -1,0 +1,37 @@
+<svg width="1440" height="760" viewBox="0 0 1440 760" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1440" height="760" rx="16" fill="#FAFBFD"/>
+  <rect x="20" y="20" width="1400" height="56" rx="10" fill="#17171C"/>
+  <text x="46" y="56" fill="#F9F9FA" font-family="Inter, Arial" font-size="18" font-weight="700">Contract and Documentation Workspace</text>
+  <rect x="20" y="94" width="360" height="646" rx="12" fill="#FFFFFF" stroke="#D1D2D6"/>
+  <text x="46" y="134" fill="#17171C" font-family="Inter, Arial" font-size="16" font-weight="700">Clause Library</text>
+  <rect x="46" y="148" width="308" height="56" rx="8" fill="#FFE2E8"/>
+  <text x="64" y="182" fill="#17171C" font-family="Inter, Arial" font-size="13">Commercial Terms v4.2</text>
+  <rect x="46" y="214" width="308" height="56" rx="8" fill="#F6F7FA"/>
+  <text x="64" y="248" fill="#17171C" font-family="Inter, Arial" font-size="13">Liability Appendix</text>
+  <rect x="46" y="280" width="308" height="56" rx="8" fill="#F6F7FA"/>
+  <text x="64" y="314" fill="#17171C" font-family="Inter, Arial" font-size="13">Delivery SLA Pack</text>
+  <rect x="398" y="94" width="1022" height="388" rx="12" fill="#FFFFFF" stroke="#D1D2D6"/>
+  <text x="426" y="134" fill="#17171C" font-family="Inter, Arial" font-size="20" font-weight="700">Contract Draft Review</text>
+  <rect x="426" y="152" width="966" height="52" rx="8" fill="#F6F7FA"/>
+  <text x="446" y="184" fill="#17171C" font-family="Inter, Arial" font-size="13">Opportunity: DUAGON-2381 | Version: Draft 3 | Owner: Legal Ops</text>
+  <rect x="426" y="214" width="966" height="236" rx="10" fill="#F8F9FB"/>
+  <text x="448" y="246" fill="#17171C" font-family="Inter, Arial" font-size="13" font-weight="600">Clause deviation highlights</text>
+  <text x="448" y="274" fill="#5E6172" font-family="Inter, Arial" font-size="12">- Payment terms changed from 30 days to 60 days.</text>
+  <text x="448" y="298" fill="#5E6172" font-family="Inter, Arial" font-size="12">- Warranty extension requested beyond standard package.</text>
+  <text x="448" y="322" fill="#5E6172" font-family="Inter, Arial" font-size="12">- IP ownership clause requires executive approval.</text>
+  <rect x="448" y="352" width="194" height="50" rx="8" fill="#17171C"/>
+  <text x="500" y="384" fill="#F9F9FA" font-family="Inter, Arial" font-size="13">Accept with Notes</text>
+  <rect x="658" y="352" width="194" height="50" rx="8" fill="#FF1E5A"/>
+  <text x="714" y="384" fill="#FFFFFF" font-family="Inter, Arial" font-size="13">Escalate</text>
+  <rect x="868" y="352" width="194" height="50" rx="8" fill="#F6F7FA"/>
+  <text x="918" y="384" fill="#17171C" font-family="Inter, Arial" font-size="13">Export Redlines</text>
+  <rect x="1078" y="352" width="194" height="50" rx="8" fill="#F6F7FA"/>
+  <text x="1134" y="384" fill="#17171C" font-family="Inter, Arial" font-size="13">Share for Approval</text>
+  <rect x="398" y="500" width="1022" height="240" rx="12" fill="#FFFFFF" stroke="#D1D2D6"/>
+  <text x="426" y="540" fill="#17171C" font-family="Inter, Arial" font-size="20" font-weight="700">Documentation Q&amp;A with Traceability</text>
+  <rect x="426" y="560" width="966" height="62" rx="8" fill="#FFF2F6"/>
+  <text x="446" y="596" fill="#17171C" font-family="Inter, Arial" font-size="13">Q: Which approved lead-time commitments apply to custom rail assemblies?</text>
+  <rect x="426" y="632" width="966" height="78" rx="8" fill="#F6F7FA"/>
+  <text x="446" y="664" fill="#17171C" font-family="Inter, Arial" font-size="13">A: Standard commitment is 18-24 days (Policy OPS-14, section 3.2). Exceptions need VP Operations approval.</text>
+  <text x="446" y="688" fill="#5E6172" font-family="Inter, Arial" font-size="12">Source: Policy OPS-14.pdf, page 7</text>
+</svg>

@@ -1,0 +1,53 @@
+<svg width="1440" height="760" viewBox="0 0 1440 760" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1440" height="760" rx="16" fill="#FAFBFD"/>
+  <rect x="20" y="20" width="1400" height="56" rx="10" fill="#17171C"/>
+  <text x="46" y="56" fill="#F9F9FA" font-family="Inter, Arial" font-size="18" font-weight="700">Quote Automation Studio</text>
+  <rect x="20" y="94" width="350" height="646" rx="12" fill="#FFFFFF" stroke="#D1D2D6"/>
+  <text x="46" y="132" fill="#17171C" font-family="Inter, Arial" font-size="16" font-weight="700">Input Panel</text>
+  <rect x="46" y="148" width="298" height="96" rx="10" fill="#F6F7FA"/>
+  <text x="64" y="188" fill="#17171C" font-family="Inter, Arial" font-size="13">RFQ Email: uploaded</text>
+  <text x="64" y="210" fill="#17171C" font-family="Inter, Arial" font-size="13">Drawing PDF: 3 pages</text>
+  <rect x="46" y="258" width="298" height="120" rx="10" fill="#FFF2F6"/>
+  <text x="64" y="292" fill="#17171C" font-family="Inter, Arial" font-size="13">Image extraction status</text>
+  <text x="64" y="316" fill="#17171C" font-family="Inter, Arial" font-size="13">Part A: 98% confidence</text>
+  <text x="64" y="338" fill="#17171C" font-family="Inter, Arial" font-size="13">Part B: 94% confidence</text>
+  <rect x="46" y="394" width="298" height="54" rx="8" fill="#17171C"/>
+  <text x="122" y="428" fill="#F9F9FA" font-family="Inter, Arial" font-size="14">Extract Specs</text>
+  <rect x="388" y="94" width="678" height="646" rx="12" fill="#FFFFFF" stroke="#D1D2D6"/>
+  <text x="416" y="132" fill="#17171C" font-family="Inter, Arial" font-size="16" font-weight="700">Specification Table</text>
+  <rect x="416" y="148" width="622" height="44" rx="8" fill="#17171C"/>
+  <text x="432" y="175" fill="#F9F9FA" font-family="Inter, Arial" font-size="12">Item</text>
+  <text x="552" y="175" fill="#F9F9FA" font-family="Inter, Arial" font-size="12">Material</text>
+  <text x="682" y="175" fill="#F9F9FA" font-family="Inter, Arial" font-size="12">Dimensions</text>
+  <text x="858" y="175" fill="#F9F9FA" font-family="Inter, Arial" font-size="12">Qty</text>
+  <text x="930" y="175" fill="#F9F9FA" font-family="Inter, Arial" font-size="12">Status</text>
+  <rect x="416" y="200" width="622" height="42" rx="8" fill="#F6F7FA"/>
+  <text x="432" y="226" fill="#17171C" font-family="Inter, Arial" font-size="12">Transformer Cylinder</text>
+  <text x="552" y="226" fill="#17171C" font-family="Inter, Arial" font-size="12">G11</text>
+  <text x="682" y="226" fill="#17171C" font-family="Inter, Arial" font-size="12">420x10x18</text>
+  <text x="858" y="226" fill="#17171C" font-family="Inter, Arial" font-size="12">64</text>
+  <text x="930" y="226" fill="#17171C" font-family="Inter, Arial" font-size="12">Validated</text>
+  <rect x="416" y="250" width="622" height="42" rx="8" fill="#F6F7FA"/>
+  <text x="432" y="276" fill="#17171C" font-family="Inter, Arial" font-size="12">Spacing Element</text>
+  <text x="552" y="276" fill="#17171C" font-family="Inter, Arial" font-size="12">FR4</text>
+  <text x="682" y="276" fill="#17171C" font-family="Inter, Arial" font-size="12">120x8x6</text>
+  <text x="858" y="276" fill="#17171C" font-family="Inter, Arial" font-size="12">140</text>
+  <text x="930" y="276" fill="#17171C" font-family="Inter, Arial" font-size="12">Needs check</text>
+  <rect x="416" y="314" width="622" height="198" rx="10" fill="#F8F9FB"/>
+  <text x="438" y="348" fill="#17171C" font-family="Inter, Arial" font-size="14" font-weight="600">Generated Offer Draft</text>
+  <text x="438" y="378" fill="#5E6172" font-family="Inter, Arial" font-size="12">- Commercial assumptions populated from historical winning cases.</text>
+  <text x="438" y="402" fill="#5E6172" font-family="Inter, Arial" font-size="12">- Alternate product recommendation included for lead-time risk.</text>
+  <text x="438" y="426" fill="#5E6172" font-family="Inter, Arial" font-size="12">- Margin alert triggered for 2 line items.</text>
+  <rect x="438" y="452" width="186" height="44" rx="8" fill="#17171C"/>
+  <text x="488" y="480" fill="#F9F9FA" font-family="Inter, Arial" font-size="13">Publish Offer</text>
+  <rect x="640" y="452" width="186" height="44" rx="8" fill="#FF1E5A"/>
+  <text x="688" y="480" fill="#FFFFFF" font-family="Inter, Arial" font-size="13">Send for Review</text>
+  <rect x="1084" y="94" width="336" height="646" rx="12" fill="#FFFFFF" stroke="#D1D2D6"/>
+  <text x="1112" y="132" fill="#17171C" font-family="Inter, Arial" font-size="16" font-weight="700">Workflow Status</text>
+  <rect x="1112" y="148" width="280" height="64" rx="10" fill="#FFE2E8"/>
+  <text x="1130" y="180" fill="#17171C" font-family="Inter, Arial" font-size="13">Spec extraction complete</text>
+  <rect x="1112" y="222" width="280" height="64" rx="10" fill="#F6F7FA"/>
+  <text x="1130" y="254" fill="#17171C" font-family="Inter, Arial" font-size="13">Pricing sync in progress</text>
+  <rect x="1112" y="296" width="280" height="64" rx="10" fill="#F6F7FA"/>
+  <text x="1130" y="328" fill="#17171C" font-family="Inter, Arial" font-size="13">Legal review not started</text>
+</svg>

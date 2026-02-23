@@ -1,0 +1,28 @@
+<svg width="1440" height="860" viewBox="0 0 1440 860" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1440" height="860" rx="20" fill="#F7F8FB"/>
+  <text x="52" y="64" fill="#17171C" font-family="Archivo, Inter" font-size="34" font-weight="700">Manufacturing Suite Architecture</text>
+  <rect x="40" y="96" width="1360" height="120" rx="14" fill="#17171C"/>
+  <text x="72" y="136" fill="#F9F9FA" font-family="Inter, Arial" font-size="20" font-weight="700">Experience Layer</text>
+  <text x="72" y="168" fill="#F9F9FA" font-family="Inter, Arial" font-size="14">Sales cockpit | Estimator workspace | Contract and documentation portal | Executive dashboard</text>
+  <rect x="40" y="236" width="1360" height="120" rx="14" fill="#FFFFFF" stroke="#D1D2D6"/>
+  <text x="72" y="276" fill="#17171C" font-family="Inter, Arial" font-size="20" font-weight="700">Workflow Orchestration Layer</text>
+  <text x="72" y="308" fill="#5E6172" font-family="Inter, Arial" font-size="14">Decision workflows | Context retrieval | Task routing | Human approvals | Exception handling</text>
+  <rect x="40" y="376" width="1360" height="120" rx="14" fill="#FFFFFF" stroke="#D1D2D6"/>
+  <text x="72" y="416" fill="#17171C" font-family="Inter, Arial" font-size="20" font-weight="700">Knowledge and Data Layer</text>
+  <text x="72" y="448" fill="#5E6172" font-family="Inter, Arial" font-size="14">CRM opportunities | ERP catalog | Offer history | Estimation memory | Documentation corpus</text>
+  <rect x="40" y="516" width="1360" height="120" rx="14" fill="#FFE2E8"/>
+  <text x="72" y="556" fill="#17171C" font-family="Inter, Arial" font-size="20" font-weight="700">Control and Governance Layer</text>
+  <text x="72" y="588" fill="#17171C" font-family="Inter, Arial" font-size="14">RBAC | Audit logs | Versioning | Security controls | Compliance monitoring</text>
+  <rect x="40" y="656" width="1360" height="164" rx="14" fill="#FFFFFF" stroke="#D1D2D6"/>
+  <text x="72" y="696" fill="#17171C" font-family="Inter, Arial" font-size="20" font-weight="700">Integration Endpoints</text>
+  <rect x="72" y="720" width="250" height="62" rx="10" fill="#F6F7FA"/>
+  <text x="130" y="758" fill="#17171C" font-family="Inter, Arial" font-size="14">CRM</text>
+  <rect x="338" y="720" width="250" height="62" rx="10" fill="#F6F7FA"/>
+  <text x="410" y="758" fill="#17171C" font-family="Inter, Arial" font-size="14">ERP</text>
+  <rect x="604" y="720" width="250" height="62" rx="10" fill="#F6F7FA"/>
+  <text x="654" y="758" fill="#17171C" font-family="Inter, Arial" font-size="14">DMS</text>
+  <rect x="870" y="720" width="250" height="62" rx="10" fill="#F6F7FA"/>
+  <text x="953" y="758" fill="#17171C" font-family="Inter, Arial" font-size="14">BI</text>
+  <rect x="1136" y="720" width="250" height="62" rx="10" fill="#F6F7FA"/>
+  <text x="1188" y="758" fill="#17171C" font-family="Inter, Arial" font-size="14">Legal</text>
+</svg>

@@ -1,0 +1,42 @@
+<svg width="1440" height="760" viewBox="0 0 1440 760" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1440" height="760" rx="16" fill="#FAFBFD"/>
+  <rect x="20" y="20" width="1400" height="56" rx="10" fill="#17171C"/>
+  <text x="46" y="56" fill="#F9F9FA" font-family="Inter, Arial" font-size="18" font-weight="700">Market and Account Intelligence</text>
+  <rect x="20" y="94" width="360" height="646" rx="12" fill="#FFFFFF" stroke="#D1D2D6"/>
+  <text x="46" y="132" fill="#17171C" font-family="Inter, Arial" font-size="16" font-weight="700">Target Accounts</text>
+  <rect x="42" y="146" width="316" height="74" rx="10" fill="#FFE2E8"/>
+  <text x="58" y="180" fill="#17171C" font-family="Inter, Arial" font-size="14" font-weight="600">Duagon Mobility Systems</text>
+  <text x="58" y="202" fill="#5E6172" font-family="Inter, Arial" font-size="12">Score 91 | Region DACH | Segment Rail</text>
+  <rect x="42" y="232" width="316" height="74" rx="10" fill="#F4F5F8"/>
+  <text x="58" y="266" fill="#17171C" font-family="Inter, Arial" font-size="14" font-weight="600">Bibus Industrial Group</text>
+  <text x="58" y="288" fill="#5E6172" font-family="Inter, Arial" font-size="12">Score 84 | Region EMEA | Segment Components</text>
+  <rect x="42" y="318" width="316" height="74" rx="10" fill="#F4F5F8"/>
+  <text x="58" y="352" fill="#17171C" font-family="Inter, Arial" font-size="14" font-weight="600">Weidmann Power Division</text>
+  <text x="58" y="374" fill="#5E6172" font-family="Inter, Arial" font-size="12">Score 79 | Region CH | Segment Energy</text>
+  <rect x="398" y="94" width="1022" height="300" rx="12" fill="#FFFFFF" stroke="#D1D2D6"/>
+  <text x="426" y="134" fill="#17171C" font-family="Inter, Arial" font-size="22" font-weight="700">Account Brief: Duagon Mobility Systems</text>
+  <text x="426" y="166" fill="#5E6172" font-family="Inter, Arial" font-size="14">Commercial context, buying group map, and opportunity signals in one brief.</text>
+  <rect x="426" y="190" width="210" height="172" rx="10" fill="#17171C"/>
+  <text x="448" y="220" fill="#F9F9FA" font-family="Inter, Arial" font-size="12">Qualification Score</text>
+  <text x="448" y="286" fill="#F9F9FA" font-family="Archivo, Inter" font-size="56" font-weight="700">91</text>
+  <rect x="652" y="190" width="368" height="172" rx="10" fill="#F6F7FA"/>
+  <text x="674" y="222" fill="#17171C" font-family="Inter, Arial" font-size="13" font-weight="600">Key Buying Roles</text>
+  <text x="674" y="250" fill="#5E6172" font-family="Inter, Arial" font-size="12">Head of Operations - Decision owner</text>
+  <text x="674" y="274" fill="#5E6172" font-family="Inter, Arial" font-size="12">Sales Engineering Lead - Technical evaluator</text>
+  <text x="674" y="298" fill="#5E6172" font-family="Inter, Arial" font-size="12">Procurement Manager - Contract gatekeeper</text>
+  <rect x="1036" y="190" width="356" height="172" rx="10" fill="#FFE2E8"/>
+  <text x="1058" y="222" fill="#17171C" font-family="Inter, Arial" font-size="13" font-weight="600">Recommended Next Steps</text>
+  <text x="1058" y="250" fill="#17171C" font-family="Inter, Arial" font-size="12">1. Send targeted discovery pack</text>
+  <text x="1058" y="274" fill="#17171C" font-family="Inter, Arial" font-size="12">2. Validate ERP and CRM landscape</text>
+  <text x="1058" y="298" fill="#17171C" font-family="Inter, Arial" font-size="12">3. Prepare estimation baseline workshop</text>
+  <rect x="398" y="412" width="1022" height="328" rx="12" fill="#FFFFFF" stroke="#D1D2D6"/>
+  <text x="426" y="452" fill="#17171C" font-family="Inter, Arial" font-size="20" font-weight="700">Discovery Question Pack</text>
+  <rect x="426" y="472" width="966" height="52" rx="8" fill="#F6F7FA"/>
+  <text x="448" y="504" fill="#17171C" font-family="Inter, Arial" font-size="13">Which offer types are currently losing margin due to late clarifications?</text>
+  <rect x="426" y="534" width="966" height="52" rx="8" fill="#F6F7FA"/>
+  <text x="448" y="566" fill="#17171C" font-family="Inter, Arial" font-size="13">Where does information handoff between sales and architects break down most often?</text>
+  <rect x="426" y="596" width="966" height="52" rx="8" fill="#F6F7FA"/>
+  <text x="448" y="628" fill="#17171C" font-family="Inter, Arial" font-size="13">Which documentation delays have blocked contract signature in the last two quarters?</text>
+  <rect x="1150" y="662" width="242" height="54" rx="8" fill="#17171C"/>
+  <text x="1210" y="696" fill="#F9F9FA" font-family="Inter, Arial" font-size="14">Publish Brief</text>
+</svg>

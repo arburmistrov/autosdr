@@ -1,0 +1,76 @@
+<svg width="1440" height="900" viewBox="0 0 1440 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1440" height="900" rx="24" fill="#F5F6F9"/>
+  <rect x="24" y="24" width="1392" height="60" rx="12" fill="#17171C"/>
+  <text x="52" y="62" fill="#F9F9FA" font-family="Inter, Arial" font-size="20" font-weight="700">Manufacturing Sales Lifecycle Workspace</text>
+
+  <rect x="24" y="102" width="312" height="774" rx="14" fill="#FFFFFF" stroke="#D1D2D6"/>
+  <text x="50" y="140" fill="#17171C" font-family="Inter, Arial" font-size="17" font-weight="700">Solution modules</text>
+  <rect x="46" y="156" width="268" height="56" rx="10" fill="#FFE2E8"/>
+  <text x="64" y="190" fill="#17171C" font-family="Inter, Arial" font-size="14">Market and Account Intelligence</text>
+  <rect x="46" y="224" width="268" height="56" rx="10" fill="#F5F6F9"/>
+  <text x="64" y="258" fill="#17171C" font-family="Inter, Arial" font-size="14">Opportunity Structuring Engine</text>
+  <rect x="46" y="292" width="268" height="56" rx="10" fill="#F5F6F9"/>
+  <text x="64" y="326" fill="#17171C" font-family="Inter, Arial" font-size="14">Quote Automation Studio</text>
+  <rect x="46" y="360" width="268" height="56" rx="10" fill="#F5F6F9"/>
+  <text x="64" y="394" fill="#17171C" font-family="Inter, Arial" font-size="14">Estimation Memory Graph</text>
+  <rect x="46" y="428" width="268" height="56" rx="10" fill="#F5F6F9"/>
+  <text x="64" y="462" fill="#17171C" font-family="Inter, Arial" font-size="14">Contract and Documentation</text>
+
+  <rect x="356" y="102" width="1060" height="180" rx="14" fill="#FFFFFF" stroke="#D1D2D6"/>
+  <text x="386" y="144" fill="#17171C" font-family="Inter, Arial" font-size="22" font-weight="700">Executive KPI snapshot</text>
+
+  <rect x="386" y="166" width="238" height="92" rx="10" fill="#17171C"/>
+  <text x="406" y="198" fill="#F9F9FA" font-family="Inter, Arial" font-size="13">Open opportunities</text>
+  <text x="406" y="236" fill="#F9F9FA" font-family="Archivo, Inter" font-size="40" font-weight="700">146</text>
+
+  <rect x="640" y="166" width="238" height="92" rx="10" fill="#FF1E5A"/>
+  <text x="660" y="198" fill="#FFFFFF" font-family="Inter, Arial" font-size="13">Avg quote cycle</text>
+  <text x="660" y="236" fill="#FFFFFF" font-family="Archivo, Inter" font-size="40" font-weight="700">5.8d</text>
+
+  <rect x="894" y="166" width="238" height="92" rx="10" fill="#F5F6F9"/>
+  <text x="914" y="198" fill="#17171C" font-family="Inter, Arial" font-size="13">Win rate (30d)</text>
+  <text x="914" y="236" fill="#17171C" font-family="Archivo, Inter" font-size="40" font-weight="700">42%</text>
+
+  <rect x="1148" y="166" width="238" height="92" rx="10" fill="#F5F6F9"/>
+  <text x="1168" y="198" fill="#17171C" font-family="Inter, Arial" font-size="13">Hours saved / month</text>
+  <text x="1168" y="236" fill="#17171C" font-family="Archivo, Inter" font-size="40" font-weight="700">504h</text>
+
+  <rect x="356" y="300" width="1060" height="576" rx="14" fill="#FFFFFF" stroke="#D1D2D6"/>
+  <text x="386" y="342" fill="#17171C" font-family="Inter, Arial" font-size="22" font-weight="700">Commercial pipeline board</text>
+
+  <rect x="386" y="362" width="242" height="486" rx="12" fill="#F8F9FB"/>
+  <text x="406" y="392" fill="#17171C" font-family="Inter, Arial" font-size="14" font-weight="700">Lead Qualification</text>
+  <rect x="404" y="406" width="206" height="96" rx="10" fill="#FFE2E8"/>
+  <text x="420" y="438" fill="#17171C" font-family="Inter, Arial" font-size="12">DUAGON-2381</text>
+  <text x="420" y="460" fill="#17171C" font-family="Inter, Arial" font-size="11">Account brief ready</text>
+  <rect x="404" y="514" width="206" height="96" rx="10" fill="#FFFFFF" stroke="#D1D2D6"/>
+  <text x="420" y="546" fill="#17171C" font-family="Inter, Arial" font-size="12">BIBUS-7712</text>
+  <text x="420" y="568" fill="#17171C" font-family="Inter, Arial" font-size="11">Need final buyer map</text>
+
+  <rect x="646" y="362" width="242" height="486" rx="12" fill="#F8F9FB"/>
+  <text x="666" y="392" fill="#17171C" font-family="Inter, Arial" font-size="14" font-weight="700">Opportunity Scoping</text>
+  <rect x="664" y="406" width="206" height="120" rx="10" fill="#FFFFFF" stroke="#D1D2D6"/>
+  <text x="680" y="438" fill="#17171C" font-family="Inter, Arial" font-size="12">WEIDMANN-9120</text>
+  <text x="680" y="460" fill="#17171C" font-family="Inter, Arial" font-size="11">Missing tolerance data</text>
+  <rect x="664" y="538" width="206" height="120" rx="10" fill="#FFFFFF" stroke="#D1D2D6"/>
+  <text x="680" y="570" fill="#17171C" font-family="Inter, Arial" font-size="12">STEELCO-8891</text>
+  <text x="680" y="592" fill="#17171C" font-family="Inter, Arial" font-size="11">Architect review queued</text>
+
+  <rect x="906" y="362" width="242" height="486" rx="12" fill="#F8F9FB"/>
+  <text x="926" y="392" fill="#17171C" font-family="Inter, Arial" font-size="14" font-weight="700">Quote and Approval</text>
+  <rect x="924" y="406" width="206" height="140" rx="10" fill="#17171C"/>
+  <text x="940" y="438" fill="#F9F9FA" font-family="Inter, Arial" font-size="12">AEROTEC-4410</text>
+  <text x="940" y="460" fill="#F9F9FA" font-family="Inter, Arial" font-size="11">Quote v2 generated</text>
+  <rect x="924" y="558" width="206" height="140" rx="10" fill="#FF1E5A"/>
+  <text x="940" y="590" fill="#FFFFFF" font-family="Inter, Arial" font-size="12">MOBIMAT-1103</text>
+  <text x="940" y="612" fill="#FFFFFF" font-family="Inter, Arial" font-size="11">Pending customer sign-off</text>
+
+  <rect x="1166" y="362" width="220" height="486" rx="12" fill="#F8F9FB"/>
+  <text x="1184" y="392" fill="#17171C" font-family="Inter, Arial" font-size="14" font-weight="700">Contracting</text>
+  <rect x="1182" y="406" width="188" height="124" rx="10" fill="#FFFFFF" stroke="#D1D2D6"/>
+  <text x="1198" y="438" fill="#17171C" font-family="Inter, Arial" font-size="12">ALPINE-771</text>
+  <text x="1198" y="460" fill="#17171C" font-family="Inter, Arial" font-size="11">Legal redline in progress</text>
+  <rect x="1182" y="544" width="188" height="124" rx="10" fill="#FFFFFF" stroke="#D1D2D6"/>
+  <text x="1198" y="576" fill="#17171C" font-family="Inter, Arial" font-size="12">NORDRAIL-204</text>
+  <text x="1198" y="598" fill="#17171C" font-family="Inter, Arial" font-size="11">Contract package sent</text>
+</svg>

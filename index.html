@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>S-PRO Manufacturing Suite</title>
+  <meta name="description" content="Modular digital platform for manufacturing sales, quotation, documentation, and operations. Launch fast with reusable solution blocks." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css?v=5" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-row">
+      <a class="brand" href="https://s-pro.io/" target="_blank" rel="noreferrer">
+        <img
+          class="brand-logo"
+          src="https://s-pro.io/wp-content/uploads/2024/08/Logo-new.svg"
+          alt="S-PRO logo"
+        />
+      </a>
+      <nav class="header-nav">
+        <a href="#suite">Solutions</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#impact">Impact</a>
+        <a href="#contact">Contact</a>
+      </nav>
+      <a class="btn btn-primary" href="#contact">Book Discovery Call</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero section">
+      <div class="container hero-grid">
+        <div>
+          <p class="eyebrow">MANUFACTURING SUITE</p>
+          <h1>Automate your manufacturing sales cycle in weeks, not months.</h1>
+          <p class="lead">Deploy modular digital solutions for qualification, quotation, contracting, and delivery handover. Start fast with the highest-impact module, then scale across teams.</p>
+          <div class="hero-cta-row">
+            <a class="btn btn-primary" href="#suite">Explore Modules</a>
+            <a class="btn btn-secondary" href="#contact">Get Pilot Plan</a>
+          </div>
+          <ul class="hero-meta">
+            <li>Launch pilot in 6-10 weeks</li>
+            <li>Modular rollout with existing CRM/ERP</li>
+            <li>Security and governance by design</li>
+          </ul>
+        </div>
+        <div class="hero-screen">
+          <img src="./assets/screen-lifecycle-board-v2.svg" alt="Manufacturing sales lifecycle workspace interface" />
+        </div>
+      </div>
+    </section>
+
+    <section class="section pain">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow">WHAT LEADERS CARE ABOUT</p>
+          <h2>Built for CEO and operations priorities, not just features.</h2>
+        </div>
+        <div class="pain-grid">
+          <article>
+            <h3>Revenue speed</h3>
+            <p>Shorten opportunity-to-offer time to capture more deals and reduce drop-off.</p>
+          </article>
+          <article>
+            <h3>Margin control</h3>
+            <p>Reduce manual estimation errors and improve pricing consistency.</p>
+          </article>
+          <article>
+            <h3>Operational resilience</h3>
+            <p>Keep knowledge inside systems instead of inside a few experts.</p>
+          </article>
+          <article>
+            <h3>Scale without chaos</h3>
+            <p>Add new digital capabilities in phases without breaking current teams or tooling.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="suite" class="section suite">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow">MODULAR SUITE</p>
+          <h2>Start with one module. Expand into a full operating system.</h2>
+          <p class="subhead">Each module is independent. Pick one module for a pilot or combine multiple modules into one end-to-end flow.</p>
+        </div>
+
+        <div class="suite-layout">
+          <div class="module-list" id="module-list">
+            <button class="module-card is-active" data-module="bd-intelligence" type="button">
+              <h3>Market and Account Intelligence</h3>
+              <p>Target account analysis and qualification briefs.</p>
+            </button>
+            <button class="module-card" data-module="opportunity-engine" type="button">
+              <h3>Opportunity Structuring Engine</h3>
+              <p>Brief normalization, risk flags, and clarification questions.</p>
+            </button>
+            <button class="module-card" data-module="quote-automation" type="button">
+              <h3>Quote Automation Studio</h3>
+              <p>Drawing/PDF/image recognition plus offer draft generation.</p>
+            </button>
+            <button class="module-card" data-module="estimation-memory" type="button">
+              <h3>Estimation Memory Graph</h3>
+              <p>Reusable pricing logic and assumptions with traceability.</p>
+            </button>
+            <button class="module-card" data-module="contract-docs" type="button">
+              <h3>Contract and Documentation Workspace</h3>
+              <p>Contract support, policy answers, and audit-ready history.</p>
+            </button>
+          </div>
+
+          <article class="module-detail" id="module-detail">
+            <div class="module-detail-head">
+              <h3 id="detail-title">Market and Account Intelligence</h3>
+              <p id="detail-summary">Target account analysis and qualification briefs.</p>
+            </div>
+            <div class="detail-kpis" id="detail-kpis"></div>
+            <div class="detail-grid">
+              <div>
+                <h4>What it does</h4>
+                <ul id="detail-features"></ul>
+              </div>
+              <div>
+                <h4>Data and integrations</h4>
+                <ul id="detail-integrations"></ul>
+              </div>
+            </div>
+            <figure class="detail-screen">
+              <img id="detail-image" src="./assets/screen-bd-intelligence.svg" alt="Solution module interface" />
+            </figure>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="architecture" class="section architecture">
+      <div class="container architecture-grid">
+        <div>
+          <p class="eyebrow">PLATFORM ARCHITECTURE</p>
+          <h2>Composable stack with governance at every layer.</h2>
+          <p class="subhead">Deploy on your infrastructure or private cloud. Each module can be enabled independently.</p>
+          <ul class="architecture-list">
+            <li><strong>Experience Layer:</strong> sales cockpit, estimator workspace, documentation portal.</li>
+            <li><strong>Workflow Orchestration Layer:</strong> decision workflows, retrieval, routing, and human approval.</li>
+            <li><strong>Knowledge Layer:</strong> offer history, technical documentation, pricing memory.</li>
+            <li><strong>Control Layer:</strong> RBAC, audit trails, versioning, security monitoring.</li>
+          </ul>
+        </div>
+        <div class="architecture-screen">
+          <img src="./assets/screen-architecture.svg" alt="Manufacturing suite architecture map" />
+        </div>
+      </div>
+    </section>
+
+    <section id="impact" class="section impact">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow">BUSINESS IMPACT</p>
+          <h2>Expected impact model for manufacturing commercial operations</h2>
+        </div>
+
+        <div class="impact-grid">
+          <article class="metric-card">
+            <h3>Offer cycle time</h3>
+            <p class="metric">-35% to -60%</p>
+            <p class="meta">From first request to draft commercial offer.</p>
+          </article>
+          <article class="metric-card">
+            <h3>Expert effort in early scoping</h3>
+            <p class="metric">-25% to -45%</p>
+            <p class="meta">Less time spent on repetitive clarification loops.</p>
+          </article>
+          <article class="metric-card">
+            <h3>Quote quality consistency</h3>
+            <p class="metric">+20% to +40%</p>
+            <p class="meta">Stronger re-use of historical estimations and assumptions.</p>
+          </article>
+          <article class="metric-card">
+            <h3>Knowledge retention</h3>
+            <p class="metric">High</p>
+            <p class="meta">Critical know-how preserved in structured system memory.</p>
+          </article>
+        </div>
+
+        <div class="roi-box">
+          <div>
+            <h3>Quick ROI estimator</h3>
+            <p>Set your current monthly opportunity volume and average engineering hours per quote.</p>
+          </div>
+          <div class="roi-controls">
+            <label>Monthly opportunities
+              <input id="opp-count" type="range" min="20" max="600" value="140" step="10" />
+            </label>
+            <label>Hours per quote today
+              <input id="hours-per-quote" type="range" min="2" max="40" value="12" step="1" />
+            </label>
+          </div>
+          <div class="roi-output">
+            <p><span id="opp-value">140</span> opportunities/month</p>
+            <p><span id="hours-value">12</span> hours per quote</p>
+            <p>Estimated hours saved with suite: <strong id="hours-saved">504</strong> h/month</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section rollout">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow">IMPLEMENTATION MODEL</p>
+          <h2>How we take this from concept to production</h2>
+        </div>
+        <div class="rollout-grid">
+          <article>
+            <span>01</span>
+            <h3>Diagnostic Sprint</h3>
+            <p>Map process bottlenecks, prioritize high-impact modules, define KPI baseline.</p>
+          </article>
+          <article>
+            <span>02</span>
+            <h3>Pilot Build</h3>
+            <p>Deploy 1-2 modules with real users, real data, and integration into current systems.</p>
+          </article>
+          <article>
+            <span>03</span>
+            <h3>Scale Program</h3>
+            <p>Roll out module set across teams with governance, training, and operations playbook.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section decision">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow">EXECUTIVE DECISION SUPPORT</p>
+          <h2>What de-risks the decision for manufacturing leadership</h2>
+        </div>
+        <div class="decision-grid">
+          <article>
+            <h3>Controlled rollout</h3>
+            <p>Start with one plant, one region, or one sales team. Expand only after KPI validation.</p>
+          </article>
+          <article>
+            <h3>Human-in-the-loop by default</h3>
+            <p>Critical commercial and contractual outputs stay under expert approval.</p>
+          </article>
+          <article>
+            <h3>Enterprise-grade governance</h3>
+            <p>Role-based access, audit history, and model change control from day one.</p>
+          </article>
+          <article>
+            <h3>Value tracking cadence</h3>
+            <p>Weekly operational metrics and monthly executive KPI review built into delivery.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="contact" class="section contact">
+      <div class="container contact-grid">
+        <div>
+          <p class="eyebrow">LET'S BUILD YOUR SUITE</p>
+          <h2>Get a tailored manufacturing suite blueprint</h2>
+          <p class="subhead">Share your current offer process and we return a prioritized module roadmap with delivery phases.</p>
+          <ul class="contact-list">
+            <li>Custom architecture aligned to your CRM/ERP landscape</li>
+            <li>Security and governance setup for enterprise rollouts</li>
+            <li>KPI model focused on revenue speed and margin stability</li>
+          </ul>
+        </div>
+
+        <form class="lead-form" action="https://s-pro.io/contact/" method="get" target="_blank">
+          <label>
+            Full name
+            <input type="text" name="name" placeholder="Jane Smith" required />
+          </label>
+          <label>
+            Work email
+            <input type="email" name="email" placeholder="jane@company.com" required />
+          </label>
+          <label>
+            Company
+            <input type="text" name="company" placeholder="Manufacturing Corp" required />
+          </label>
+          <label>
+            Priority objective
+            <select name="objective" required>
+              <option value="">Select objective</option>
+              <option>Reduce quote turnaround time</option>
+              <option>Improve quote quality and margin control</option>
+              <option>Automate documentation and contracting</option>
+              <option>Build end-to-end digital operating model</option>
+            </select>
+          </label>
+          <label>
+            Brief context
+            <textarea name="message" rows="4" placeholder="Current process, key bottlenecks, systems in use"></textarea>
+          </label>
+          <button class="btn btn-primary" type="submit">Request Blueprint</button>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-row">
+      <p>Manufacturing Suite concept by S-PRO.</p>
+      <a href="https://s-pro.io/" target="_blank" rel="noreferrer">s-pro.io</a>
+    </div>
+  </footer>
+
+  <script src="./script.js?v=5"></script>
+</body>
+</html>
