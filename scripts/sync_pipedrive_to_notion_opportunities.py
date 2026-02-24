@@ -351,8 +351,13 @@ class PipedriveClient:
             if start is None:
                 break
 
-    def collect_deals(self) -> List[dict]:
-        return list(self.iter_paginated("/deals", params={"status": "all_not_deleted"}, limit=500))
+    def collect_deals(self, max_items: int = 0) -> List[dict]:
+        out = []
+        for row in self.iter_paginated("/deals", params={"status": "all_not_deleted"}, limit=500):
+            out.append(row)
+            if max_items > 0 and len(out) >= max_items:
+                break
+        return out
 
     def stage_id_name_map(self) -> Dict[int, str]:
         out = {}
@@ -372,8 +377,9 @@ class PipedriveClient:
                 out[name] = key
         return out
 
-    def notes_by_deal(self, deal_id: int) -> List[dict]:
-        return list(self.iter_paginated("/notes", params={"deal_id": deal_id}, limit=200))
+    def notes_by_deal(self, deal_id: int, limit: int = 20) -> List[dict]:
+        payload = self.get("/notes", params={"deal_id": deal_id, "start": 0, "limit": max(1, limit)})
+        return payload.get("data") or []
 
 
 class NotionClient:
@@ -505,7 +511,10 @@ def run_sync(args):
 
     stage_map = pd.stage_id_name_map()
     field_keys = pd.deal_field_name_key_map()
-    deals = dedupe_by_deal_id(pd.collect_deals())
+    max_deals = args.max_deals if args.max_deals > 0 else int(sync_cfg.get("max_deals_per_run", 0))
+    scan_notes = args.scan_notes or bool(sync_cfg.get("scan_notes_for_docs", False))
+    notes_limit = int(sync_cfg.get("notes_limit_per_deal", 20))
+    deals = dedupe_by_deal_id(pd.collect_deals(max_items=max_deals))
 
     db = notion.get_database(notion_db)
     schema_props = db.get("properties") or {}
@@ -546,7 +555,7 @@ def run_sync(args):
             stage_id = int(deal.get("stage_id") or 0)
             raw_stage = stage_map.get(stage_id, "")
             target_stage = map_stage(raw_stage, stage_cfg)
-            notes = pd.notes_by_deal(did)
+            notes = pd.notes_by_deal(did, limit=notes_limit) if scan_notes else []
             doc_links = build_doc_links(deal, field_keys, notes, doc_hints)
             checks = compute_checks(deal, doc_links, field_keys, readiness)
             readiness_percent = compute_readiness_percent(checks)
@@ -619,6 +628,8 @@ def main():
     ap.add_argument("--stage-map", default=str(DEFAULT_STAGE_MAP))
     ap.add_argument("--readiness", default=str(DEFAULT_READINESS))
     ap.add_argument("--report", default=str(DEFAULT_REPORT))
+    ap.add_argument("--max-deals", type=int, default=0, help="Limit number of deals per run (0 = from config/all)")
+    ap.add_argument("--scan-notes", action="store_true", help="Enable scanning Pipedrive notes for document links")
     mode = ap.add_mutually_exclusive_group()
     mode.add_argument("--dry-run", action="store_true")
     mode.add_argument("--apply", action="store_true")
