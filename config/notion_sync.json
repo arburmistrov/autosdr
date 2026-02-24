@@ -1,0 +1,45 @@
+{
+  "notion_database_id": "",
+  "request_timeout_sec": 60,
+  "max_retries": 4,
+  "retry_backoff_sec": 1.5,
+  "properties": {
+    "title": "Name",
+    "crm_deal_id": "CRM Deal ID",
+    "stage": "Stage",
+    "days_in_stage": "Days in Stage",
+    "sla_color": "SLA Color",
+    "readiness_percent": "Readiness %",
+    "gate_status": "Gate Status",
+    "sync_notes": "Sync Notes",
+    "docs_status": "Docs Status",
+    "brief_link": "Brief Link",
+    "scope_link": "Scope Link",
+    "estimate_link": "Estimate Link",
+    "presentation_link": "Presentation Link",
+    "last_sync_at": "Last Sync At"
+  },
+  "manual_fields": [
+    "Future Size",
+    "Future Domain",
+    "Future Confidence"
+  ],
+  "doc_hints": {
+    "brief": [
+      "brief"
+    ],
+    "scope": [
+      "scope"
+    ],
+    "estimate": [
+      "estimate",
+      "estimation",
+      "quote"
+    ],
+    "presentation": [
+      "presentation",
+      "slides",
+      "deck"
+    ]
+  }
+}

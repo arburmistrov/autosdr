@@ -1,0 +1,48 @@
+{
+  "checks": {
+    "brief_link_present": {
+      "kind": "doc_present",
+      "doc_key": "brief"
+    },
+    "scope_link_present": {
+      "kind": "doc_present",
+      "doc_key": "scope"
+    },
+    "estimate_link_present": {
+      "kind": "doc_present",
+      "doc_key": "estimate"
+    },
+    "presentation_link_present": {
+      "kind": "doc_present",
+      "doc_key": "presentation"
+    },
+    "owner_assigned": {
+      "kind": "owner_assigned"
+    },
+    "client_deadline_known": {
+      "kind": "builtin_presence",
+      "path": "expected_close_date"
+    },
+    "budget_range_known": {
+      "kind": "builtin_presence",
+      "path": "value"
+    }
+  },
+  "gates": {
+    "Estimation": [
+      "brief_link_present",
+      "scope_link_present",
+      "owner_assigned",
+      "client_deadline_known",
+      "budget_range_known"
+    ],
+    "Validation": [
+      "estimate_link_present"
+    ],
+    "Presented": [
+      "presentation_link_present"
+    ]
+  },
+  "hard_rollback": true,
+  "rollback_reason_template": "Blocked move to {target_stage}: missing {missing}"
+}
