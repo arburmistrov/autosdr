@@ -368,6 +368,15 @@ class PipedriveClient:
                 continue
         return out
 
+    def pipeline_id_name_map(self) -> Dict[int, str]:
+        out = {}
+        for row in self.iter_paginated("/pipelines", params={}, limit=200):
+            try:
+                out[int(row["id"])] = str(row.get("name", ""))
+            except Exception:
+                continue
+        return out
+
     def deal_field_name_key_map(self) -> Dict[str, str]:
         out = {}
         for row in self.iter_paginated("/dealFields", params={}, limit=500):
@@ -447,6 +456,9 @@ class NotionClient:
 
     def update_page(self, page_id: str, properties: dict) -> dict:
         return self._request("PATCH", f"/v1/pages/{page_id}", {"properties": properties})
+
+    def archive_page(self, page_id: str) -> dict:
+        return self._request("PATCH", f"/v1/pages/{page_id}", {"archived": True})
 
     def create_page(self, database_id: str, properties: dict) -> dict:
         return self._request("POST", "/v1/pages", {"parent": {"database_id": database_id}, "properties": properties})
@@ -528,11 +540,23 @@ def run_sync(args):
     )
 
     stage_map = pd.stage_id_name_map()
+    pipeline_map = pd.pipeline_id_name_map()
     field_keys = pd.deal_field_name_key_map()
     max_deals = args.max_deals if args.max_deals > 0 else int(sync_cfg.get("max_deals_per_run", 0))
     scan_notes = args.scan_notes or bool(sync_cfg.get("scan_notes_for_docs", False))
     notes_limit = int(sync_cfg.get("notes_limit_per_deal", 20))
     deals = dedupe_by_deal_id(pd.collect_deals(max_items=max_deals))
+
+    pipeline_filters = []
+    if args.pipeline_name:
+        pipeline_filters.extend([x.strip() for x in args.pipeline_name.split(",") if x.strip()])
+    pipeline_filters.extend([x.strip() for x in sync_cfg.get("pipeline_include_names", []) if str(x).strip()])
+    pipeline_filters_lower = {p.lower() for p in pipeline_filters}
+    if pipeline_filters_lower:
+        deals = [
+            d for d in deals
+            if str(pipeline_map.get(int(d.get("pipeline_id") or 0), "")).strip().lower() in pipeline_filters_lower
+        ]
 
     db = notion.get_database(notion_db)
     schema_props = db.get("properties") or {}
@@ -555,16 +579,27 @@ def run_sync(args):
     report = {
         "mode": "apply" if args.apply else "dry-run",
         "timestamp_utc": now,
+        "pipeline_filter": sorted(pipeline_filters_lower),
         "total_deals_seen": len(deals),
         "actions_planned": plan_upsert_actions(deals, existing_by_deal_id),
         "created": 0,
         "updated": 0,
+        "archived": 0,
         "blocked": 0,
         "errors": [],
         "skipped_properties": [],
         "blocked_examples": [],
     }
     skipped_props = set()
+
+    if args.clear_before_sync and args.apply:
+        for p in existing_pages:
+            try:
+                notion.archive_page(p["id"])
+                report["archived"] += 1
+            except Exception as e:
+                report["errors"].append({"page_id": p.get("id"), "error": f"archive_failed: {e}"})
+        existing_by_deal_id = {}
 
     for deal in deals:
         try:
@@ -648,6 +683,8 @@ def main():
     ap.add_argument("--report", default=str(DEFAULT_REPORT))
     ap.add_argument("--max-deals", type=int, default=0, help="Limit number of deals per run (0 = from config/all)")
     ap.add_argument("--scan-notes", action="store_true", help="Enable scanning Pipedrive notes for document links")
+    ap.add_argument("--pipeline-name", default="", help="Comma-separated Pipedrive pipeline names to include")
+    ap.add_argument("--clear-before-sync", action="store_true", help="Archive existing pages in target Notion DB before sync")
     mode = ap.add_mutually_exclusive_group()
     mode.add_argument("--dry-run", action="store_true")
     mode.add_argument("--apply", action="store_true")
