@@ -53,6 +53,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--board-name", default="Opportunities - CRM Sync")
     ap.add_argument("--parent-page-id", default="")
+    ap.add_argument("--max-deals", type=int, default=120)
     ap.add_argument("--config", default=str(DEFAULT_SYNC_CONFIG))
     ap.add_argument("--stage-map", default=str(DEFAULT_STAGE_MAP))
     ap.add_argument("--readiness", default=str(DEFAULT_READINESS))
@@ -106,7 +107,7 @@ def main():
         report=args.report,
         apply=not args.dry_run,
         dry_run=args.dry_run,
-        max_deals=0,
+        max_deals=max(0, int(args.max_deals)),
         scan_notes=False,
     )
     run_sync(sync_args)
