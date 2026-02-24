@@ -15,6 +15,10 @@ on:
         description: "How many deals to seed initially"
         required: false
         default: "120"
+      skip_seed:
+        description: "Create empty board only (true/false)"
+        required: false
+        default: "false"
 
 jobs:
   create-and-seed:
@@ -27,6 +31,7 @@ jobs:
       NOTION_API_TOKEN: ${{ secrets.NOTION_API_TOKEN }}
       NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
       NOTION_PARENT_PAGE_ID: ${{ github.event.inputs.parent_page_id }}
+      SKIP_SEED: ${{ github.event.inputs.skip_seed }}
 
     steps:
       - name: Checkout
@@ -41,10 +46,16 @@ jobs:
         run: |
           mkdir -p data/output
           set -o pipefail
+          EXTRA_ARGS=""
+          if [ "${SKIP_SEED}" = "true" ]; then
+            EXTRA_ARGS="--skip-seed"
+          fi
           python scripts/create_new_notion_opportunity_board.py \
             --board-name "${{ github.event.inputs.board_name }}" \
             --parent-page-id "${{ github.event.inputs.parent_page_id }}" \
-            --max-deals "${{ github.event.inputs.max_deals }}" 2>&1 | tee data/output/create_board.log
+            --max-deals "${{ github.event.inputs.max_deals }}" \
+            ${EXTRA_ARGS} \
+            2>&1 | tee data/output/create_board.log
 
       - name: Upload board info and sync report
         if: always()
