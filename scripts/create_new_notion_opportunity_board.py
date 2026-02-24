@@ -54,6 +54,7 @@ def main():
     ap.add_argument("--board-name", default="Opportunities - CRM Sync")
     ap.add_argument("--parent-page-id", default="")
     ap.add_argument("--max-deals", type=int, default=120)
+    ap.add_argument("--skip-seed", action="store_true", help="Create empty board only, without initial CRM sync")
     ap.add_argument("--config", default=str(DEFAULT_SYNC_CONFIG))
     ap.add_argument("--stage-map", default=str(DEFAULT_STAGE_MAP))
     ap.add_argument("--readiness", default=str(DEFAULT_READINESS))
@@ -99,18 +100,19 @@ def main():
     if not new_db_id:
         raise SystemExit(f"Failed to create database: {new_db}")
 
-    os.environ["NOTION_DATABASE_ID"] = new_db_id
-    sync_args = SimpleNamespace(
-        config=args.config,
-        stage_map=args.stage_map,
-        readiness=args.readiness,
-        report=args.report,
-        apply=not args.dry_run,
-        dry_run=args.dry_run,
-        max_deals=max(0, int(args.max_deals)),
-        scan_notes=False,
-    )
-    run_sync(sync_args)
+    if not args.skip_seed:
+        os.environ["NOTION_DATABASE_ID"] = new_db_id
+        sync_args = SimpleNamespace(
+            config=args.config,
+            stage_map=args.stage_map,
+            readiness=args.readiness,
+            report=args.report,
+            apply=not args.dry_run,
+            dry_run=args.dry_run,
+            max_deals=max(0, int(args.max_deals)),
+            scan_notes=False,
+        )
+        run_sync(sync_args)
 
     payload = {
         "created_at_utc": dt.datetime.utcnow().isoformat() + "Z",
