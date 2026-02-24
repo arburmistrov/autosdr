@@ -30,14 +30,18 @@ jobs:
 
       - name: Create board and seed from CRM
         run: |
+          mkdir -p data/output
+          set -o pipefail
           python scripts/create_new_notion_opportunity_board.py \
-            --board-name "${{ github.event.inputs.board_name }}"
+            --board-name "${{ github.event.inputs.board_name }}" 2>&1 | tee data/output/create_board.log
 
       - name: Upload board info and sync report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: new-opportunity-board-output
           path: |
+            data/output/create_board.log
             data/output/new_notion_board.json
             data/output/notion_sync_report.json
           if-no-files-found: warn
