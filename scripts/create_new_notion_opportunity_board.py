@@ -31,7 +31,7 @@ def build_board_properties(stage_order):
     return {
         "Name": {"title": {}},
         "CRM Deal ID": {"number": {"format": "number"}},
-        "Stage": {"select": {"options": stage_options}},
+        "Stage": {"status": {"options": stage_options}},
         "Days in Stage": {"number": {"format": "number"}},
         "SLA Color": {"select": {"options": [{"name": "Green"}, {"name": "Yellow"}, {"name": "Red"}]}},
         "Readiness %": {"number": {"format": "percent"}},
@@ -43,9 +43,9 @@ def build_board_properties(stage_order):
         "Estimate Link": {"url": {}},
         "Presentation Link": {"url": {}},
         "Last Sync At": {"date": {}},
-        "Future Size": {"select": {"options": [{"name": "S"}, {"name": "M"}, {"name": "L"}]}},
-        "Future Domain": {"multi_select": {"options": [{"name": "Mob"}, {"name": "Web"}, {"name": "Blockchain"}]}},
-        "Future Confidence": {"select": {"options": [{"name": "Low"}, {"name": "Medium"}, {"name": "High"}]}},
+        "Size": {"select": {"options": [{"name": "S"}, {"name": "M"}, {"name": "L"}]}},
+        "Domain": {"multi_select": {"options": [{"name": "Mob"}, {"name": "Web"}, {"name": "Blockchain"}]}},
+        "Confidence": {"select": {"options": [{"name": "Low"}, {"name": "Medium"}, {"name": "High"}]}},
     }
 
 
@@ -111,6 +111,8 @@ def main():
             dry_run=args.dry_run,
             max_deals=max(0, int(args.max_deals)),
             scan_notes=False,
+            pipeline_name="",
+            clear_before_sync=False,
         )
         run_sync(sync_args)
 
