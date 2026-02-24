@@ -448,6 +448,14 @@ class NotionClient:
     def create_page(self, database_id: str, properties: dict) -> dict:
         return self._request("POST", "/v1/pages", {"parent": {"database_id": database_id}, "properties": properties})
 
+    def create_database(self, parent_page_id: str, title: str, properties: dict) -> dict:
+        body = {
+            "parent": {"type": "page_id", "page_id": parent_page_id},
+            "title": notion_plain_text(title),
+            "properties": properties,
+        }
+        return self._request("POST", "/v1/databases", body)
+
 
 def build_properties_payload(
     values: Dict[str, object],
