@@ -7,6 +7,10 @@ on:
         description: "Name for new Notion board"
         required: false
         default: "Opportunities - CRM Sync"
+      parent_page_id:
+        description: "Optional parent Notion page ID where new board will be created"
+        required: false
+        default: ""
 
 jobs:
   create-and-seed:
@@ -18,6 +22,7 @@ jobs:
       PIPEDRIVE_API_TOKEN: ${{ secrets.PIPEDRIVE_API_TOKEN }}
       NOTION_API_TOKEN: ${{ secrets.NOTION_API_TOKEN }}
       NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+      NOTION_PARENT_PAGE_ID: ${{ github.event.inputs.parent_page_id }}
 
     steps:
       - name: Checkout
@@ -33,7 +38,8 @@ jobs:
           mkdir -p data/output
           set -o pipefail
           python scripts/create_new_notion_opportunity_board.py \
-            --board-name "${{ github.event.inputs.board_name }}" 2>&1 | tee data/output/create_board.log
+            --board-name "${{ github.event.inputs.board_name }}" \
+            --parent-page-id "${{ github.event.inputs.parent_page_id }}" 2>&1 | tee data/output/create_board.log
 
       - name: Upload board info and sync report
         if: always()
