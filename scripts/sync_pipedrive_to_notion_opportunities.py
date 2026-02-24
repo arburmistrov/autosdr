@@ -456,6 +456,13 @@ class NotionClient:
         }
         return self._request("POST", "/v1/databases", body)
 
+    def create_workspace_page(self, title: str) -> dict:
+        body = {
+            "parent": {"workspace": True},
+            "properties": {"title": {"title": notion_plain_text(title)}},
+        }
+        return self._request("POST", "/v1/pages", body)
+
 
 def build_properties_payload(
     values: Dict[str, object],
