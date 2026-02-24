@@ -6,6 +6,9 @@
   "scan_notes_for_docs": false,
   "max_deals_per_run": 500,
   "notes_limit_per_deal": 20,
+  "pipeline_include_names": [
+    "S-PRO new"
+  ],
   "properties": {
     "title": "Name",
     "crm_deal_id": "CRM Deal ID",
@@ -23,6 +26,9 @@
     "last_sync_at": "Last Sync At"
   },
   "manual_fields": [
+    "Size",
+    "Domain",
+    "Confidence",
     "Future Size",
     "Future Domain",
     "Future Confidence"
