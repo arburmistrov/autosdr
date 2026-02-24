@@ -351,9 +351,9 @@ class PipedriveClient:
             if start is None:
                 break
 
-    def collect_deals(self, max_items: int = 0) -> List[dict]:
+    def collect_deals(self, max_items: int = 0, deal_status: str = "all_not_deleted") -> List[dict]:
         out = []
-        for row in self.iter_paginated("/deals", params={"status": "all_not_deleted"}, limit=500):
+        for row in self.iter_paginated("/deals", params={"status": deal_status}, limit=500):
             out.append(row)
             if max_items > 0 and len(out) >= max_items:
                 break
@@ -545,7 +545,9 @@ def run_sync(args):
     max_deals = args.max_deals if args.max_deals > 0 else int(sync_cfg.get("max_deals_per_run", 0))
     scan_notes = args.scan_notes or bool(sync_cfg.get("scan_notes_for_docs", False))
     notes_limit = int(sync_cfg.get("notes_limit_per_deal", 20))
-    deals = dedupe_by_deal_id(pd.collect_deals(max_items=0))
+    deal_status = (args.deals_status or str(sync_cfg.get("deals_status", "all_not_deleted"))).strip()
+    use_raw_stage_names = bool(sync_cfg.get("use_raw_stage_names", False))
+    deals = dedupe_by_deal_id(pd.collect_deals(max_items=0, deal_status=deal_status))
 
     pipeline_filters = []
     if args.pipeline_name:
@@ -582,6 +584,7 @@ def run_sync(args):
         "mode": "apply" if args.apply else "dry-run",
         "timestamp_utc": now,
         "pipeline_filter": sorted(pipeline_filters_lower),
+        "deals_status": deal_status,
         "total_deals_seen": len(deals),
         "actions_planned": plan_upsert_actions(deals, existing_by_deal_id),
         "created": 0,
@@ -609,7 +612,10 @@ def run_sync(args):
             title = str(deal.get("title") or f"Deal {did}")
             stage_id = int(deal.get("stage_id") or 0)
             raw_stage = stage_map.get(stage_id, "")
-            target_stage = map_stage(raw_stage, stage_cfg)
+            if use_raw_stage_names and raw_stage:
+                target_stage = raw_stage
+            else:
+                target_stage = map_stage(raw_stage, stage_cfg)
             notes = pd.notes_by_deal(did, limit=notes_limit) if scan_notes else []
             doc_links = build_doc_links(deal, field_keys, notes, doc_hints)
             checks = compute_checks(deal, doc_links, field_keys, readiness)
@@ -686,6 +692,7 @@ def main():
     ap.add_argument("--max-deals", type=int, default=0, help="Limit number of deals per run (0 = from config/all)")
     ap.add_argument("--scan-notes", action="store_true", help="Enable scanning Pipedrive notes for document links")
     ap.add_argument("--pipeline-name", default="", help="Comma-separated Pipedrive pipeline names to include")
+    ap.add_argument("--deals-status", default="", help="Pipedrive deals status filter: open, won, lost, deleted, all_not_deleted")
     ap.add_argument("--clear-before-sync", action="store_true", help="Archive existing pages in target Notion DB before sync")
     mode = ap.add_mutually_exclusive_group()
     mode.add_argument("--dry-run", action="store_true")
