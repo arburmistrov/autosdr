@@ -1,0 +1,29 @@
+{
+  "pre_opportunity_target": "Future pipeline",
+  "pre_opportunity_stage_names": [
+    "Company Longlist",
+    "Company Shortlist",
+    "Outreach Queued",
+    "Contacted",
+    "Replied",
+    "Qualified Meeting"
+  ],
+  "explicit_map": {
+    "Opportunity": "Scope Definition",
+    "Estimation": "Estimation",
+    "Validation": "Validation",
+    "Presented": "Presented",
+    "Potential 80%+": "Potential 80%+",
+    "Won": "Won",
+    "Lost": "Lost"
+  },
+  "stage_order": [
+    "Future pipeline",
+    "Scope Definition",
+    "Estimation",
+    "Validation",
+    "Presented",
+    "Potential 80%+",
+    "Won"
+  ]
+}
