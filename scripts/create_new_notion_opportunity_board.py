@@ -31,7 +31,7 @@ def build_board_properties(stage_order):
     return {
         "Name": {"title": {}},
         "CRM Deal ID": {"number": {"format": "number"}},
-        "Stage": {"status": {"options": stage_options}},
+        "Stage": {"select": {"options": stage_options}},
         "Days in Stage": {"number": {"format": "number"}},
         "SLA Color": {"select": {"options": [{"name": "Green"}, {"name": "Yellow"}, {"name": "Red"}]}},
         "Readiness %": {"number": {"format": "percent"}},
