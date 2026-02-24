@@ -10,6 +10,14 @@ on:
         description: "How many deals to sync"
         required: false
         default: "200"
+      pipeline_name:
+        description: "Comma-separated pipeline names"
+        required: false
+        default: "S-PRO new"
+      clear_before_sync:
+        description: "Archive existing pages before sync (true/false)"
+        required: false
+        default: "true"
       scan_notes:
         description: "Scan deal notes for doc links (true/false)"
         required: false
@@ -26,6 +34,8 @@ jobs:
       NOTION_API_TOKEN: ${{ secrets.NOTION_API_TOKEN }}
       NOTION_DATABASE_ID: ${{ github.event.inputs.database_id }}
       MAX_DEALS: ${{ github.event.inputs.max_deals }}
+      PIPELINE_NAME: ${{ github.event.inputs.pipeline_name }}
+      CLEAR_BEFORE_SYNC: ${{ github.event.inputs.clear_before_sync }}
       SCAN_NOTES: ${{ github.event.inputs.scan_notes }}
 
     steps:
@@ -45,9 +55,13 @@ jobs:
           if [ "${SCAN_NOTES}" = "true" ]; then
             EXTRA_ARGS="--scan-notes"
           fi
+          if [ "${CLEAR_BEFORE_SYNC}" = "true" ]; then
+            EXTRA_ARGS="${EXTRA_ARGS} --clear-before-sync"
+          fi
           python scripts/sync_pipedrive_to_notion_opportunities.py \
             --apply \
             --max-deals "${MAX_DEALS}" \
+            --pipeline-name "${PIPELINE_NAME}" \
             ${EXTRA_ARGS} 2>&1 | tee data/output/seed_board.log
 
       - name: Upload report
