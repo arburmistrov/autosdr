@@ -76,7 +76,12 @@ def main():
     parent = source_meta.get("parent") or {}
     parent_page_id = parent.get("page_id")
     if not parent_page_id:
-        raise SystemExit("Could not resolve source database parent page_id")
+        # Some workspaces expose DB parent as workspace/data source.
+        # Create a dedicated container page and place the new board there.
+        holder = notion.create_workspace_page("CRM Synced Opportunity Boards")
+        parent_page_id = holder.get("id")
+    if not parent_page_id:
+        raise SystemExit("Could not resolve or create parent page for new database")
 
     new_db = notion.create_database(
         parent_page_id=parent_page_id,
