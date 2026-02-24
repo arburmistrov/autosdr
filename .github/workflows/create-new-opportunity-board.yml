@@ -1,0 +1,43 @@
+name: Create New Opportunity Board
+
+on:
+  workflow_dispatch:
+    inputs:
+      board_name:
+        description: "Name for new Notion board"
+        required: false
+        default: "Opportunities - CRM Sync"
+
+jobs:
+  create-and-seed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      PIPEDRIVE_DOMAIN: ${{ secrets.PIPEDRIVE_DOMAIN }}
+      PIPEDRIVE_API_TOKEN: ${{ secrets.PIPEDRIVE_API_TOKEN }}
+      NOTION_API_TOKEN: ${{ secrets.NOTION_API_TOKEN }}
+      NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Create board and seed from CRM
+        run: |
+          python scripts/create_new_notion_opportunity_board.py \
+            --board-name "${{ github.event.inputs.board_name }}"
+
+      - name: Upload board info and sync report
+        uses: actions/upload-artifact@v4
+        with:
+          name: new-opportunity-board-output
+          path: |
+            data/output/new_notion_board.json
+            data/output/notion_sync_report.json
+          if-no-files-found: warn
