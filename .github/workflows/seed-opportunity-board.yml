@@ -1,0 +1,61 @@
+name: Seed Existing Opportunity Board
+
+on:
+  workflow_dispatch:
+    inputs:
+      database_id:
+        description: "Target Notion database ID"
+        required: true
+      max_deals:
+        description: "How many deals to sync"
+        required: false
+        default: "200"
+      scan_notes:
+        description: "Scan deal notes for doc links (true/false)"
+        required: false
+        default: "false"
+
+jobs:
+  seed-board:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      PIPEDRIVE_DOMAIN: ${{ secrets.PIPEDRIVE_DOMAIN }}
+      PIPEDRIVE_API_TOKEN: ${{ secrets.PIPEDRIVE_API_TOKEN }}
+      NOTION_API_TOKEN: ${{ secrets.NOTION_API_TOKEN }}
+      NOTION_DATABASE_ID: ${{ github.event.inputs.database_id }}
+      MAX_DEALS: ${{ github.event.inputs.max_deals }}
+      SCAN_NOTES: ${{ github.event.inputs.scan_notes }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Seed board from CRM
+        run: |
+          mkdir -p data/output
+          set -o pipefail
+          EXTRA_ARGS=""
+          if [ "${SCAN_NOTES}" = "true" ]; then
+            EXTRA_ARGS="--scan-notes"
+          fi
+          python scripts/sync_pipedrive_to_notion_opportunities.py \
+            --apply \
+            --max-deals "${MAX_DEALS}" \
+            ${EXTRA_ARGS} 2>&1 | tee data/output/seed_board.log
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seed-opportunity-board-output
+          path: |
+            data/output/seed_board.log
+            data/output/notion_sync_report.json
+          if-no-files-found: warn
