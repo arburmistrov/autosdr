@@ -6,6 +6,8 @@
   "scan_notes_for_docs": false,
   "max_deals_per_run": 500,
   "notes_limit_per_deal": 20,
+  "deals_status": "open",
+  "use_raw_stage_names": true,
   "pipeline_include_names": [
     "S-PRO new"
   ],
