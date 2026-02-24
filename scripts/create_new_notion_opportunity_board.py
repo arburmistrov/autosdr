@@ -112,6 +112,7 @@ def main():
             max_deals=max(0, int(args.max_deals)),
             scan_notes=False,
             pipeline_name="",
+            deals_status="",
             clear_before_sync=False,
         )
         run_sync(sync_args)
