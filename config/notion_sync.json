@@ -3,6 +3,9 @@
   "request_timeout_sec": 60,
   "max_retries": 4,
   "retry_backoff_sec": 1.5,
+  "scan_notes_for_docs": false,
+  "max_deals_per_run": 500,
+  "notes_limit_per_deal": 20,
   "properties": {
     "title": "Name",
     "crm_deal_id": "CRM Deal ID",
