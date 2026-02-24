@@ -3,8 +3,12 @@ import argparse
 import datetime as dt
 import json
 import os
+import sys
 from pathlib import Path
 from types import SimpleNamespace
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 
 from scripts.sync_pipedrive_to_notion_opportunities import (
     DEFAULT_READINESS,
@@ -15,8 +19,6 @@ from scripts.sync_pipedrive_to_notion_opportunities import (
     run_sync,
 )
 
-
-ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = ROOT / "data" / "output" / "new_notion_board.json"
 
 
