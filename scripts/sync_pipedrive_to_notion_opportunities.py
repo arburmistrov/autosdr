@@ -423,6 +423,9 @@ class NotionClient:
     def get_database(self, database_id: str) -> dict:
         return self._request("GET", f"/v1/databases/{database_id}")
 
+    def get_data_source(self, data_source_id: str) -> dict:
+        return self._request("GET", f"/v1/data-sources/{data_source_id}")
+
     def query_database(self, database_id: str, start_cursor: Optional[str] = None, page_size: int = 100) -> dict:
         body = {"page_size": page_size}
         if start_cursor:
