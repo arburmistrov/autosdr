@@ -14,6 +14,10 @@ on:
         description: "Comma-separated pipeline names"
         required: false
         default: "S-PRO new"
+      deals_status:
+        description: "Pipedrive status: open/won/lost/all_not_deleted"
+        required: false
+        default: "open"
       clear_before_sync:
         description: "Archive existing pages before sync (true/false)"
         required: false
@@ -35,6 +39,7 @@ jobs:
       NOTION_DATABASE_ID: ${{ github.event.inputs.database_id }}
       MAX_DEALS: ${{ github.event.inputs.max_deals }}
       PIPELINE_NAME: ${{ github.event.inputs.pipeline_name }}
+      DEALS_STATUS: ${{ github.event.inputs.deals_status }}
       CLEAR_BEFORE_SYNC: ${{ github.event.inputs.clear_before_sync }}
       SCAN_NOTES: ${{ github.event.inputs.scan_notes }}
 
@@ -62,6 +67,7 @@ jobs:
             --apply \
             --max-deals "${MAX_DEALS}" \
             --pipeline-name "${PIPELINE_NAME}" \
+            --deals-status "${DEALS_STATUS}" \
             ${EXTRA_ARGS} 2>&1 | tee data/output/seed_board.log
 
       - name: Upload report
