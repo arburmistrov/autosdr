@@ -1,0 +1,37 @@
+name: Notion Opportunity Sync
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 * * * *'
+
+jobs:
+  sync-opportunities:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      PIPEDRIVE_DOMAIN: ${{ secrets.PIPEDRIVE_DOMAIN }}
+      PIPEDRIVE_API_TOKEN: ${{ secrets.PIPEDRIVE_API_TOKEN }}
+      NOTION_API_TOKEN: ${{ secrets.NOTION_API_TOKEN }}
+      NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run sync
+        run: |
+          python scripts/sync_pipedrive_to_notion_opportunities.py --apply
+
+      - name: Upload sync report
+        uses: actions/upload-artifact@v4
+        with:
+          name: notion-opportunity-sync-report
+          path: data/output/notion_sync_report.json
+          if-no-files-found: warn
