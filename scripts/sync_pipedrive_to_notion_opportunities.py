@@ -545,7 +545,7 @@ def run_sync(args):
     max_deals = args.max_deals if args.max_deals > 0 else int(sync_cfg.get("max_deals_per_run", 0))
     scan_notes = args.scan_notes or bool(sync_cfg.get("scan_notes_for_docs", False))
     notes_limit = int(sync_cfg.get("notes_limit_per_deal", 20))
-    deals = dedupe_by_deal_id(pd.collect_deals(max_items=max_deals))
+    deals = dedupe_by_deal_id(pd.collect_deals(max_items=0))
 
     pipeline_filters = []
     if args.pipeline_name:
@@ -557,6 +557,8 @@ def run_sync(args):
             d for d in deals
             if str(pipeline_map.get(int(d.get("pipeline_id") or 0), "")).strip().lower() in pipeline_filters_lower
         ]
+    if max_deals > 0 and len(deals) > max_deals:
+        deals = deals[:max_deals]
 
     db = notion.get_database(notion_db)
     schema_props = db.get("properties") or {}
