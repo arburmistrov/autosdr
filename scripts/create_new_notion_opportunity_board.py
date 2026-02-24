@@ -52,6 +52,7 @@ def build_board_properties(stage_order):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--board-name", default="Opportunities - CRM Sync")
+    ap.add_argument("--parent-page-id", default="")
     ap.add_argument("--config", default=str(DEFAULT_SYNC_CONFIG))
     ap.add_argument("--stage-map", default=str(DEFAULT_STAGE_MAP))
     ap.add_argument("--readiness", default=str(DEFAULT_READINESS))
@@ -74,15 +75,17 @@ def main():
         backoff_sec=float(sync_cfg.get("retry_backoff_sec", 1.5)),
     )
 
+    parent_page_id = (args.parent_page_id or os.getenv("NOTION_PARENT_PAGE_ID", "")).strip()
     source_meta = notion.get_database(source_db)
-    parent = source_meta.get("parent") or {}
-    parent_page_id = parent.get("page_id")
-    if not parent_page_id and parent.get("type") == "data_source_id":
-        ds_id = parent.get("data_source_id")
-        if ds_id:
-            ds = notion.get_data_source(ds_id)
-            ds_parent = ds.get("parent") or {}
-            parent_page_id = ds_parent.get("page_id")
+    if not parent_page_id:
+        parent = source_meta.get("parent") or {}
+        parent_page_id = parent.get("page_id")
+        if not parent_page_id and parent.get("type") == "data_source_id":
+            ds_id = parent.get("data_source_id")
+            if ds_id:
+                ds = notion.get_data_source(ds_id)
+                ds_parent = ds.get("parent") or {}
+                parent_page_id = ds_parent.get("page_id")
     if not parent_page_id:
         raise SystemExit("Could not resolve parent page_id for source database. Open the board as a page and re-share it with integration.")
 
