@@ -11,6 +11,10 @@ on:
         description: "Optional parent Notion page ID where new board will be created"
         required: false
         default: ""
+      max_deals:
+        description: "How many deals to seed initially"
+        required: false
+        default: "120"
 
 jobs:
   create-and-seed:
@@ -39,7 +43,8 @@ jobs:
           set -o pipefail
           python scripts/create_new_notion_opportunity_board.py \
             --board-name "${{ github.event.inputs.board_name }}" \
-            --parent-page-id "${{ github.event.inputs.parent_page_id }}" 2>&1 | tee data/output/create_board.log
+            --parent-page-id "${{ github.event.inputs.parent_page_id }}" \
+            --max-deals "${{ github.event.inputs.max_deals }}" 2>&1 | tee data/output/create_board.log
 
       - name: Upload board info and sync report
         if: always()
