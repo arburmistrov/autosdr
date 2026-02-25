@@ -106,6 +106,14 @@ def save_json(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def ensure_metrics(state: dict) -> dict:
+    m = state.setdefault("metrics", {})
+    m.setdefault("send_runs", [])
+    m.setdefault("sync_runs", [])
+    m.setdefault("totals", {"sent": 0, "replied": 0, "bounced": 0, "send_errors": 0})
+    return m
+
+
 def first_name_from_email(email: str) -> str:
     local = (email or "").split("@")[0]
     token = re.split(r"[._-]+", local)[0] if local else ""
@@ -367,6 +375,11 @@ def cmd_init_queue(args: argparse.Namespace) -> None:
             "reply_window_days": args.reply_window_days,
         },
         "contacts": contacts,
+        "metrics": {
+            "send_runs": [],
+            "sync_runs": [],
+            "totals": {"sent": 0, "replied": 0, "bounced": 0, "send_errors": 0},
+        },
     }
     save_json(Path(args.state), payload)
     print(f"Queue initialized: {len(contacts)} contacts -> {args.state}")
@@ -419,6 +432,7 @@ def ensure_pipedrive_deal(contact: dict, pd: PipedriveClient, owner_user_id: int
 
 def cmd_sync_replies(args: argparse.Namespace) -> None:
     state = load_json(Path(args.state), {})
+    metrics = ensure_metrics(state)
     contacts = state.get("contacts", [])
     if not contacts:
         raise SystemExit(f"No contacts in state: {args.state}")
@@ -441,12 +455,14 @@ def cmd_sync_replies(args: argparse.Namespace) -> None:
         after_ts = parse_iso(c["last_sent_at"]) - timedelta(minutes=2)
         bounced, bounce_at, bounce_subject = query_has_bounce(service, c["email"], after_ts)
         if bounced:
+            was_invalid = c.get("status") == "invalid"
             c["status"] = "invalid"
             c["error"] = f"bounce:{bounce_subject or 'undeliverable'}"
             c["reply_at"] = bounce_at
             c["next_touch_at"] = ""
             checked += 1
-            bounced_count += 1
+            if not was_invalid:
+                bounced_count += 1
             continue
         found, _ = process_reply_for_contact(c, service, after_ts)
         checked += 1
@@ -459,6 +475,16 @@ def cmd_sync_replies(args: argparse.Namespace) -> None:
                     c["error"] = f"pipedrive:{type(exc).__name__}:{exc}"
 
     state["last_sync_at"] = iso_now()
+    metrics["totals"]["replied"] += replied_count
+    metrics["totals"]["bounced"] += bounced_count
+    metrics["sync_runs"].append(
+        {
+            "at": state["last_sync_at"],
+            "checked": checked,
+            "replied_new": replied_count,
+            "bounced_new": bounced_count,
+        }
+    )
     save_json(Path(args.state), state)
     print(f"Reply sync done. Checked={checked}, replied={replied_count}, bounced={bounced_count}, state={args.state}")
 
@@ -477,6 +503,7 @@ def should_send_now(contact: dict, now: datetime) -> bool:
 
 def cmd_send_due(args: argparse.Namespace) -> None:
     state = load_json(Path(args.state), {})
+    metrics = ensure_metrics(state)
     contacts = state.get("contacts", [])
     if not contacts:
         raise SystemExit(f"No contacts in state: {args.state}")
@@ -484,6 +511,7 @@ def cmd_send_due(args: argparse.Namespace) -> None:
     service = gmail_service(Path(args.credentials), Path(args.token))
     now = utc_now()
     sent = 0
+    send_errors = 0
     dry = not args.send
 
     for c in contacts:
@@ -537,15 +565,31 @@ def cmd_send_due(args: argparse.Namespace) -> None:
             sent += 1
         except Exception as exc:
             c["error"] = f"send:{type(exc).__name__}:{exc}"
+            send_errors += 1
 
     state["last_send_run_at"] = iso_now()
     state["last_send_mode"] = "send" if args.send else "dry-run"
+    metrics["totals"]["sent"] += sent
+    metrics["totals"]["send_errors"] += send_errors
+    metrics["send_runs"].append(
+        {
+            "at": state["last_send_run_at"],
+            "mode": state["last_send_mode"],
+            "sent": sent,
+            "send_errors": send_errors,
+            "max_per_run": args.max_per_run,
+        }
+    )
     save_json(Path(args.state), state)
-    print(f"Send due complete. sent={sent}, mode={'SEND' if args.send else 'DRY-RUN'}, state={args.state}")
+    print(
+        f"Send due complete. sent={sent}, send_errors={send_errors}, "
+        f"mode={'SEND' if args.send else 'DRY-RUN'}, state={args.state}"
+    )
 
 
 def cmd_report(args: argparse.Namespace) -> None:
     state = load_json(Path(args.state), {})
+    metrics = ensure_metrics(state)
     contacts = state.get("contacts", [])
     by_status = {}
     due_now = 0
@@ -555,12 +599,28 @@ def cmd_report(args: argparse.Namespace) -> None:
         by_status[st] = by_status.get(st, 0) + 1
         if should_send_now(c, now):
             due_now += 1
+    derived = {
+        "sent": sum(1 for c in contacts if c.get("last_sent_at")),
+        "replied": sum(1 for c in contacts if c.get("status") == "replied"),
+        "bounced": sum(1 for c in contacts if c.get("status") == "invalid" and str(c.get("error", "")).startswith("bounce:")),
+        "send_errors": sum(1 for c in contacts if str(c.get("error", "")).startswith("send:")),
+    }
+    bounced_emails = [
+        {"email": c.get("email", ""), "error": c.get("error", ""), "at": c.get("reply_at", "")}
+        for c in contacts
+        if c.get("status") == "invalid" and str(c.get("error", "")).startswith("bounce:")
+    ]
     payload = {
         "state": str(Path(args.state)),
         "generated_at": iso_now(),
         "total_contacts": len(contacts),
         "due_now": due_now,
         "by_status": dict(sorted(by_status.items())),
+        "totals": metrics.get("totals", {}),
+        "derived_totals": derived,
+        "last_send_run": (metrics.get("send_runs") or [])[-1] if metrics.get("send_runs") else None,
+        "last_sync_run": (metrics.get("sync_runs") or [])[-1] if metrics.get("sync_runs") else None,
+        "bounced_emails": bounced_emails[:50],
     }
     print(json.dumps(payload, ensure_ascii=False, indent=2))
 
