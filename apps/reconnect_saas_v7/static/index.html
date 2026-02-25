@@ -45,6 +45,7 @@
     .modal.open { display:flex; }
     .modal-card { width:min(980px,95vw); max-height:90vh; overflow:auto; background:#fff; border-radius:12px; border:1px solid var(--line); padding:12px; }
     .block { border:1px solid var(--line); border-radius:8px; padding:8px; margin-top:8px; }
+    .draft-box { width:100%; min-height:140px; border:1px solid var(--line); border-radius:10px; padding:10px; font:inherit; }
     pre { white-space:pre-wrap; word-break:break-word; margin:0; }
   </style>
 </head>
@@ -96,6 +97,8 @@
       <div class="row"><div><label><input id="hide_auto" type="checkbox"/> hide auto-rejected</label></div></div>
       <div class="btns">
         <button class="primary" id="generate" disabled>Generate from my Gmail history</button>
+        <button id="pause_generate" disabled>Pause</button>
+        <button id="resume_generate" disabled>Resume</button>
         <button id="refresh_queue" disabled>Refresh queue</button>
         <button id="generate_drafts" disabled>Generate follow-up from approved</button>
       </div>
@@ -128,6 +131,23 @@
     <section class="card hidden" id="drafts_card">
       <h2>Generated Follow-up Drafts</h2>
       <p class="muted" id="drafts_meta"></p>
+      <p class="muted" id="drafts_ready"></p>
+      <div class="row cols3" style="margin-bottom:8px;">
+        <div>
+          <label>Follow-ups per lead</label>
+          <select id="followups_count">
+            <option value="3">3</option>
+            <option value="5">5</option>
+          </select>
+        </div>
+      </div>
+      <div class="btns" style="margin-bottom:8px;">
+        <button class="primary" id="run_campaign">Run campaign</button>
+        <button id="refresh_drafts">Refresh drafts</button>
+        <button id="refresh_campaign">Refresh campaign status</button>
+      </div>
+      <p class="muted" id="campaign_msg"></p>
+      <div id="campaign_status" class="hidden"></div>
       <div id="drafts_list"></div>
     </section>
   </div>
@@ -149,11 +169,30 @@
     const STORE = 'reconnect_saas_v7_ui';
     const $ = (id) => document.getElementById(id);
     let queueRows = [];
+    let draftRows = [];
+    let campaignData = null;
     let loadingTimer = null;
     let loadingPct = 0;
 
     function load() { try { return JSON.parse(localStorage.getItem(STORE) || '{}'); } catch { return {}; } }
     function save(v) { localStorage.setItem(STORE, JSON.stringify(v)); }
+
+    function getCurrentJobId() {
+      const s = load();
+      return String(s.queue_job_id || '').trim();
+    }
+
+    function setCurrentJobId(jobId) {
+      const s = load();
+      s.queue_job_id = String(jobId || '').trim();
+      save(s);
+    }
+
+    function clearCurrentJobId() {
+      const s = load();
+      delete s.queue_job_id;
+      save(s);
+    }
 
     async function api(path, opts = {}) {
       const res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts });
@@ -201,6 +240,100 @@
       $('st_approved').textContent = String(summary.approved || 0);
       $('st_rejected').textContent = String(summary.rejected || 0);
       $('generate_drafts').disabled = (summary.approved || 0) < 1;
+    }
+
+    function renderDrafts() {
+      const total = draftRows.length;
+      $('drafts_card').classList.toggle('hidden', total < 1);
+      if (total < 1) return;
+      const pending = draftRows.filter((d) => d.status === 'pending').length;
+      const approved = draftRows.filter((d) => d.status === 'approved').length;
+      const rejected = draftRows.filter((d) => d.status === 'rejected').length;
+      const ready = total > 0 && approved > 0 && pending === 0;
+      $('drafts_meta').textContent = `Drafts: ${total}. Pending: ${pending}. Approved: ${approved}. Rejected: ${rejected}.`;
+      $('drafts_ready').textContent = ready
+        ? 'Ready to send: all drafts reviewed and at least one approved.'
+        : 'Not ready: finish final approval for pending drafts.';
+      $('run_campaign').disabled = !ready;
+      $('drafts_list').innerHTML = draftRows.map((d, idx) => `
+        <div class="block" data-org="${esc(d.organization_domain)}" data-to="${esc(d.to)}">
+          <div><strong>${esc(d.organization)}</strong> (${esc(d.organization_domain)})</div>
+          <div class="muted">To: ${esc(d.to)}</div>
+          <div class="muted">Context: ${esc(d.summary || '')}</div>
+          <div class="muted" style="margin-top:6px;">Status: ${statusPill(d.status || 'pending')}</div>
+          <textarea class="draft-box" id="draft_box_${idx}"></textarea>
+          <div class="btns" style="margin-top:8px;">
+            <button data-draft-action="save">Save text</button>
+            <button class="good" data-draft-action="approve">Approve final</button>
+            <button class="bad" data-draft-action="reject">Reject</button>
+          </div>
+        </div>
+      `).join('');
+      draftRows.forEach((d, idx) => {
+        const el = $(`draft_box_${idx}`);
+        if (el) el.value = d.final_text || d.draft || '';
+      });
+    }
+
+    async function refreshDrafts() {
+      const s = load();
+      if (!s.email) return;
+      try {
+        const out = await api(`/api/drafts?email=${encodeURIComponent(s.email)}`);
+        draftRows = out.drafts || [];
+        renderDrafts();
+      } catch (e) {
+        $('queue_msg').textContent = `Drafts load failed: ${e.message}`;
+      }
+    }
+
+    function renderCampaignStatus() {
+      const wrap = $('campaign_status');
+      if (!campaignData || !campaignData.campaign || !campaignData.campaign.exists) {
+        wrap.classList.add('hidden');
+        wrap.innerHTML = '';
+        return;
+      }
+      const c = campaignData.campaign;
+      const targets = campaignData.targets || [];
+      wrap.classList.remove('hidden');
+      wrap.innerHTML = `
+        <div class="block">
+          <div><strong>Campaign ${esc(c.campaign_id)}</strong> — ${esc(c.status)}</div>
+          <div class="muted">Targets: ${esc(c.total_targets)} | Sent: ${esc(c.sent_count)} | Replied: ${esc(c.replied_count)} | Deals: ${esc(c.deals_created)}</div>
+          <div class="muted">Started: ${esc(fmt(c.started_at))}</div>
+        </div>
+        <div class="table-wrap" style="margin-top:8px;">
+          <table>
+            <thead><tr><th>Org</th><th>To</th><th>Sent</th><th>Next send</th><th>Reply</th><th>Deal</th><th>Status</th></tr></thead>
+            <tbody>
+              ${targets.map((t) => `
+                <tr>
+                  <td>${esc(t.organization_name)} (${esc(t.organization_domain)})</td>
+                  <td>${esc(t.to)}</td>
+                  <td>${esc(t.sent_count)}/${esc(t.max_sends)}</td>
+                  <td>${esc(fmt(t.next_send_at))}</td>
+                  <td>${esc(fmt(t.replied_at))}</td>
+                  <td>${esc(t.pipedrive_deal_id || '')}</td>
+                  <td>${statusPill(t.status || 'pending')}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    async function refreshCampaignStatus() {
+      const s = load();
+      if (!s.email) return;
+      try {
+        const out = await api(`/api/campaign/status?email=${encodeURIComponent(s.email)}`);
+        campaignData = out;
+        renderCampaignStatus();
+      } catch (e) {
+        $('campaign_msg').textContent = `Campaign status failed: ${e.message}`;
+      }
     }
 
     function openModal(row) {
@@ -303,8 +436,11 @@
         $('gmail_status').textContent = 'Not connected';
         $('gmail_status').className = 'warn';
         $('generate').disabled = true;
+        $('pause_generate').disabled = true;
+        $('resume_generate').disabled = true;
         $('refresh_queue').disabled = true;
         $('generate_drafts').disabled = true;
+        $('run_campaign').disabled = true;
         return;
       }
 
@@ -314,7 +450,10 @@
         $('gmail_status').className = st.gmail_connected ? 'ok' : 'warn';
         const ready = !!st.gmail_connected;
         $('generate').disabled = !ready;
+        $('pause_generate').disabled = true;
+        $('resume_generate').disabled = true;
         $('refresh_queue').disabled = !ready;
+        $('run_campaign').disabled = true;
         renderStats(st.queue || { total:0,pending:0,approved:0,rejected:0 });
       } catch (e) {
         $('queue_msg').textContent = `Status check failed: ${e.message}`;
@@ -339,11 +478,15 @@
       let lastOrganizations = -1;
       while (true) {
         const st = await api(`/api/queue/generate-status?email=${encodeURIComponent(email)}&job_id=${encodeURIComponent(jobId)}`);
+        $('pause_generate').disabled = st.status !== 'running';
+        $('resume_generate').disabled = st.status !== 'paused';
         if (st.message) $('loading_text').textContent = st.message;
         const orgs = Number((st.summary || {}).organizations || 0);
         const processed = Number((st.summary || {}).messages_processed || 0);
         const total = Number((st.summary || {}).messages_total || 0);
-        if (total > 0) {
+        if (st.status === 'paused') {
+          $('queue_msg').textContent = `Paused at ${orgs} orgs, ${processed}/${total || '?'} messages.`;
+        } else if (total > 0) {
           $('queue_msg').textContent = `Generating... ${orgs} orgs, ${processed}/${total} messages`;
         } else {
           $('queue_msg').textContent = `Generating... ${orgs} orgs`;
@@ -379,12 +522,15 @@
     $('reset').addEventListener('click', () => {
       localStorage.removeItem(STORE);
       queueRows = [];
+      draftRows = [];
       $('user_msg').textContent = 'Reset done.';
       $('gmail_msg').textContent = '';
       $('pd_msg').textContent = '';
       $('queue_msg').textContent = '';
       $('queue_card').classList.add('hidden');
       $('drafts_card').classList.add('hidden');
+      $('pause_generate').disabled = true;
+      $('resume_generate').disabled = true;
       refreshStatus();
     });
 
@@ -442,7 +588,11 @@
       $('queue_msg').textContent = 'Generating queue from Gmail history...';
       try {
         startLoading('Scanning mailbox range 2015 -> today...');
+        $('generate').disabled = true;
+        $('pause_generate').disabled = false;
+        $('resume_generate').disabled = true;
         const started = await api('/api/queue/generate', { method:'POST', body: JSON.stringify({ email: s.email }) });
+        setCurrentJobId(started.job_id);
         await waitForQueueJob(s.email, started.job_id);
         const out = await api(`/api/queue?email=${encodeURIComponent(s.email)}`);
         queueRows = out.rows || [];
@@ -450,32 +600,104 @@
         renderRows();
         renderStats(out.summary || { total:0,pending:0,approved:0,rejected:0 });
         $('queue_msg').textContent = `Done: ${out.summary.total || 0} organizations loaded (range: 2015 -> today).`;
+        $('pause_generate').disabled = true;
+        $('resume_generate').disabled = true;
+        $('generate').disabled = false;
+        clearCurrentJobId();
         stopLoading('Queue generated');
       } catch (e) {
         $('queue_msg').textContent = `Failed: ${e.message}`;
+        $('pause_generate').disabled = true;
+        $('resume_generate').disabled = true;
+        $('generate').disabled = false;
         stopLoading('Generation failed');
       }
     });
 
+    $('pause_generate').addEventListener('click', async () => {
+      const s = load();
+      const jobId = getCurrentJobId();
+      if (!s.email || !jobId) return;
+      try {
+        await api('/api/queue/generate/pause', { method:'POST', body: JSON.stringify({ email: s.email, job_id: jobId }) });
+        $('queue_msg').textContent = 'Pause requested...';
+      } catch (e) {
+        $('queue_msg').textContent = `Pause failed: ${e.message}`;
+      }
+    });
+
+    $('resume_generate').addEventListener('click', async () => {
+      const s = load();
+      const jobId = getCurrentJobId();
+      if (!s.email || !jobId) return;
+      try {
+        await api('/api/queue/generate/resume', { method:'POST', body: JSON.stringify({ email: s.email, job_id: jobId }) });
+        $('queue_msg').textContent = 'Resumed.';
+      } catch (e) {
+        $('queue_msg').textContent = `Resume failed: ${e.message}`;
+      }
+    });
+
     $('refresh_queue').addEventListener('click', refreshQueue);
+    $('refresh_drafts').addEventListener('click', refreshDrafts);
+    $('refresh_campaign').addEventListener('click', refreshCampaignStatus);
 
     $('generate_drafts').addEventListener('click', async () => {
       const s = load();
       if (!s.email) return;
       try {
-        const out = await api('/api/drafts/generate', { method:'POST', body: JSON.stringify({ email: s.email }) });
-        $('drafts_meta').textContent = `Owner signature: ${out.owner_name}. Drafts: ${out.count}.`;
-        $('drafts_list').innerHTML = (out.drafts || []).map((d) => `
-          <div class="block">
-            <div><strong>${esc(d.organization)}</strong> (${esc(d.organization_domain)})</div>
-            <div class="muted">To: ${esc(d.to)}</div>
-            <div class="muted">Context: ${esc(d.summary || '')}</div>
-            <pre>${esc(d.draft || '')}</pre>
-          </div>
-        `).join('') || '<div class="muted">No approved rows yet.</div>';
-        $('drafts_card').classList.remove('hidden');
+        await api('/api/drafts/generate', { method:'POST', body: JSON.stringify({ email: s.email }) });
+        await refreshDrafts();
       } catch (e) {
         $('queue_msg').textContent = `Draft generation failed: ${e.message}`;
+      }
+    });
+
+    $('drafts_list').addEventListener('click', async (e) => {
+      const btn = e.target.closest('button[data-draft-action]');
+      if (!btn) return;
+      const box = e.target.closest('.block');
+      if (!box) return;
+      const action = btn.getAttribute('data-draft-action');
+      const org = box.getAttribute('data-org');
+      const to = box.getAttribute('data-to');
+      const txt = box.querySelector('textarea')?.value || '';
+      const s = load();
+      if (!s.email || !org || !to) return;
+      try {
+        await api('/api/drafts/update', {
+          method:'POST',
+          body: JSON.stringify({ email: s.email, organization_domain: org, to, final_text: txt }),
+        });
+        if (action === 'approve' || action === 'reject') {
+          const status = action === 'approve' ? 'approved' : 'rejected';
+          await api('/api/drafts/decision', {
+            method:'POST',
+            body: JSON.stringify({ email: s.email, organization_domain: org, to, status }),
+          });
+        }
+        await refreshDrafts();
+      } catch (err) {
+        $('queue_msg').textContent = `Draft action failed: ${err.message}`;
+      }
+    });
+
+    $('run_campaign').addEventListener('click', async () => {
+      const s = load();
+      if (!s.email) return;
+      const followups = Number($('followups_count').value || '3');
+      try {
+        $('campaign_msg').textContent = 'Starting campaign...';
+        const out = await api('/api/campaign/start', {
+          method:'POST',
+          body: JSON.stringify({ email: s.email, followups_count: followups }),
+        });
+        $('campaign_msg').textContent = out.already_running
+          ? `Campaign already running: ${out.campaign_id}`
+          : `Campaign started: ${out.campaign_id}, targets: ${out.targets}`;
+        await refreshCampaignStatus();
+      } catch (e) {
+        $('campaign_msg').textContent = `Campaign start failed: ${e.message}`;
       }
     });
 
@@ -500,7 +722,30 @@
       if (gmail) history.replaceState(null, '', '/');
     })();
 
-    refreshStatus().then(refreshQueue);
+    refreshStatus().then(async () => {
+      await refreshQueue();
+      await refreshDrafts();
+      await refreshCampaignStatus();
+      const s = load();
+      const jobId = getCurrentJobId();
+      if (s.email && jobId) {
+        startLoading('Restoring mailbox generation status...');
+        try {
+          await waitForQueueJob(s.email, jobId);
+          await refreshQueue();
+          stopLoading('Queue generated');
+          clearCurrentJobId();
+        } catch {
+          stopLoading('Generation stopped');
+        }
+      }
+    });
+
+    setInterval(() => {
+      const s = load();
+      if (!s.email) return;
+      refreshCampaignStatus();
+    }, 60000);
   </script>
 </body>
 </html>

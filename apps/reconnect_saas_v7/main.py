@@ -8,9 +8,11 @@ import secrets
 import sqlite3
 import ast
 import asyncio
+import base64
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from email.message import EmailMessage
 from email.utils import parseaddr
 from pathlib import Path
 from typing import Any, Optional
@@ -171,6 +173,30 @@ class DraftPayload(BaseModel):
     email: EmailStr
 
 
+class QueueJobControlPayload(BaseModel):
+    email: EmailStr
+    job_id: str
+
+
+class DraftUpdatePayload(BaseModel):
+    email: EmailStr
+    organization_domain: str
+    to: EmailStr
+    final_text: str
+
+
+class DraftDecisionPayload(BaseModel):
+    email: EmailStr
+    organization_domain: str
+    to: EmailStr
+    status: str
+
+
+class CampaignStartPayload(BaseModel):
+    email: EmailStr
+    followups_count: int
+
+
 app = FastAPI(title="Reconnect SaaS v7 API")
 app.add_middleware(
     CORSMiddleware,
@@ -183,6 +209,7 @@ app.add_middleware(
 # In-memory async jobs for long-running mailbox scans.
 QUEUE_JOBS: dict[str, dict[str, Any]] = {}
 QUEUE_JOB_TASKS: dict[str, asyncio.Task[Any]] = {}
+CAMPAIGN_WORKER_TASK: Optional[asyncio.Task[Any]] = None
 
 
 def now_iso() -> str:
@@ -242,6 +269,51 @@ def init_db() -> None:
               updated_at TEXT NOT NULL,
               PRIMARY KEY (user_email, organization_domain)
             );
+            CREATE TABLE IF NOT EXISTS followup_drafts (
+              user_email TEXT NOT NULL,
+              organization_domain TEXT NOT NULL,
+              organization_name TEXT NOT NULL,
+              to_email TEXT NOT NULL,
+              primary_contact_name TEXT,
+              context_summary TEXT,
+              topics_json TEXT NOT NULL,
+              draft_text TEXT NOT NULL,
+              final_text TEXT NOT NULL,
+              status TEXT NOT NULL DEFAULT 'pending',
+              created_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL,
+              PRIMARY KEY (user_email, organization_domain, to_email)
+            );
+            CREATE TABLE IF NOT EXISTS campaigns (
+              campaign_id TEXT PRIMARY KEY,
+              user_email TEXT NOT NULL,
+              status TEXT NOT NULL,
+              followups_count INTEGER NOT NULL,
+              total_targets INTEGER NOT NULL DEFAULT 0,
+              sent_count INTEGER NOT NULL DEFAULT 0,
+              replied_count INTEGER NOT NULL DEFAULT 0,
+              deals_created INTEGER NOT NULL DEFAULT 0,
+              started_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS campaign_targets (
+              campaign_id TEXT NOT NULL,
+              user_email TEXT NOT NULL,
+              organization_domain TEXT NOT NULL,
+              organization_name TEXT NOT NULL,
+              to_email TEXT NOT NULL,
+              token TEXT NOT NULL,
+              draft_text TEXT NOT NULL,
+              sent_count INTEGER NOT NULL DEFAULT 0,
+              max_sends INTEGER NOT NULL,
+              last_sent_at TEXT,
+              next_send_at TEXT NOT NULL,
+              replied_at TEXT,
+              pipedrive_deal_id TEXT,
+              status TEXT NOT NULL DEFAULT 'active',
+              updated_at TEXT NOT NULL,
+              PRIMARY KEY (campaign_id, organization_domain, to_email)
+            );
             """
         )
         try:
@@ -256,6 +328,26 @@ def on_startup() -> None:
 
 
 init_db()
+
+
+@app.on_event("startup")
+async def start_campaign_worker() -> None:
+    global CAMPAIGN_WORKER_TASK
+    if CAMPAIGN_WORKER_TASK and not CAMPAIGN_WORKER_TASK.done():
+        return
+    CAMPAIGN_WORKER_TASK = asyncio.create_task(campaign_worker_loop())
+
+
+@app.on_event("shutdown")
+async def stop_campaign_worker() -> None:
+    global CAMPAIGN_WORKER_TASK
+    if CAMPAIGN_WORKER_TASK and not CAMPAIGN_WORKER_TASK.done():
+        CAMPAIGN_WORKER_TASK.cancel()
+        try:
+            await CAMPAIGN_WORKER_TASK
+        except Exception:
+            pass
+    CAMPAIGN_WORKER_TASK = None
 
 
 @app.get("/")
@@ -306,6 +398,17 @@ def user_status(email: str) -> dict[str, Any]:
             """,
             (user_email,),
         ).fetchone()
+        ds = conn.execute(
+            """
+            SELECT
+              COUNT(*) AS total,
+              SUM(CASE WHEN status='approved' THEN 1 ELSE 0 END) AS approved,
+              SUM(CASE WHEN status='rejected' THEN 1 ELSE 0 END) AS rejected,
+              SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) AS pending
+            FROM followup_drafts WHERE user_email=?
+            """,
+            (user_email,),
+        ).fetchone()
     return {
         "ok": True,
         "user_exists": bool(u),
@@ -320,6 +423,12 @@ def user_status(email: str) -> dict[str, Any]:
             "approved": int((qs["approved"] if qs and qs["approved"] is not None else 0) or 0),
             "rejected": int((qs["rejected"] if qs and qs["rejected"] is not None else 0) or 0),
             "pending": int((qs["pending"] if qs and qs["pending"] is not None else 0) or 0),
+        },
+        "drafts": {
+            "total": int((ds["total"] if ds and ds["total"] is not None else 0) or 0),
+            "approved": int((ds["approved"] if ds and ds["approved"] is not None else 0) or 0),
+            "rejected": int((ds["rejected"] if ds and ds["rejected"] is not None else 0) or 0),
+            "pending": int((ds["pending"] if ds and ds["pending"] is not None else 0) or 0),
         },
     }
 
@@ -388,7 +497,7 @@ def google_start(request: Request, email: str = Query(...)) -> RedirectResponse:
         "client_id": GOOGLE_CLIENT_ID,
         "redirect_uri": redirect_uri,
         "response_type": "code",
-        "scope": "openid email profile https://www.googleapis.com/auth/gmail.readonly",
+        "scope": "openid email profile https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send",
         "access_type": "offline",
         "include_granted_scopes": "true",
         "prompt": "consent",
@@ -507,6 +616,17 @@ def load_gmail_connection(user_email: str) -> Optional[GmailConn]:
         refresh_token=row["refresh_token"] or "",
         expires_at=row["expires_at"] or "",
     )
+
+
+def load_pipedrive_connection(user_email: str) -> Optional[dict[str, str]]:
+    with db_conn() as conn:
+        row = conn.execute(
+            "SELECT domain, api_token FROM pipedrive_connections WHERE user_email=?",
+            (user_email,),
+        ).fetchone()
+    if not row:
+        return None
+    return {"domain": str(row["domain"] or ""), "api_token": str(row["api_token"] or "")}
 
 
 async def ensure_valid_access_token(conn: GmailConn) -> str:
@@ -724,6 +844,318 @@ def set_queue_job_state(key: str, **updates: Any) -> None:
     if not job:
         return
     job.update(updates)
+
+
+async def wait_if_queue_job_paused(job_key: Optional[str]) -> bool:
+    if not job_key:
+        return False
+    while True:
+        job = QUEUE_JOBS.get(job_key)
+        if not job:
+            return True
+        if not bool(job.get("pause_requested")):
+            return False
+        set_queue_job_state(job_key, status="paused", message="Paused by user")
+        await asyncio.sleep(0.4)
+
+
+def load_followup_drafts(user_email: str) -> list[dict[str, Any]]:
+    with db_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT
+              organization_domain, organization_name, to_email, primary_contact_name,
+              context_summary, topics_json, draft_text, final_text, status, updated_at
+            FROM followup_drafts
+            WHERE user_email=?
+            ORDER BY
+              CASE status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,
+              organization_name ASC,
+              to_email ASC
+            """,
+            (user_email,),
+        ).fetchall()
+
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        topics: list[str] = []
+        try:
+            parsed = json.loads(str(r["topics_json"] or "[]"))
+            if isinstance(parsed, list):
+                topics = [str(x) for x in parsed][:8]
+        except Exception:
+            topics = []
+        out.append(
+            {
+                "organization_domain": str(r["organization_domain"] or ""),
+                "organization": str(r["organization_name"] or ""),
+                "to": str(r["to_email"] or ""),
+                "primary_contact_name": str(r["primary_contact_name"] or ""),
+                "summary": str(r["context_summary"] or ""),
+                "topics": topics,
+                "draft": str(r["draft_text"] or ""),
+                "final_text": str(r["final_text"] or ""),
+                "status": str(r["status"] or "pending"),
+                "updated_at": str(r["updated_at"] or ""),
+            }
+        )
+    return out
+
+
+def drafts_summary(drafts: list[dict[str, Any]]) -> dict[str, Any]:
+    total = len(drafts)
+    pending = sum(1 for d in drafts if d.get("status") == "pending")
+    approved = sum(1 for d in drafts if d.get("status") == "approved")
+    rejected = sum(1 for d in drafts if d.get("status") == "rejected")
+    return {
+        "total": total,
+        "pending": pending,
+        "approved": approved,
+        "rejected": rejected,
+        "ready_to_send": total > 0 and approved > 0 and pending == 0,
+    }
+
+
+def campaign_subject(organization: str, send_index: int, token: str) -> str:
+    if send_index <= 0:
+        return f"[RC-{token}] Quick check-in with {organization}"
+    variants = [
+        "Following up on my previous note",
+        "Sharing one more idea for your team",
+        "Checking if this is still relevant",
+        "A different angle that might help",
+        "Closing the loop for now",
+    ]
+    line = variants[(send_index - 1) % len(variants)]
+    return f"[RC-{token}] {line} — {organization}"
+
+
+def campaign_body(base_text: str, send_index: int) -> str:
+    if send_index <= 0:
+        return base_text.strip()
+    prefixes = [
+        "Quick follow-up in case my previous message got buried.",
+        "Wanted to share another angle that could be useful.",
+        "Checking one more time if this is relevant now.",
+        "Last follow-up from my side unless timing changes.",
+    ]
+    prefix = prefixes[(send_index - 1) % len(prefixes)]
+    return f"{prefix}\n\n{base_text.strip()}"
+
+
+async def gmail_send_plain_message(access_token: str, to_email: str, subject: str, body: str) -> dict[str, Any]:
+    msg = EmailMessage()
+    msg["To"] = to_email
+    msg["Subject"] = subject
+    msg["Content-Type"] = "text/plain; charset=utf-8"
+    msg.set_content(body)
+    raw = base64.urlsafe_b64encode(msg.as_bytes()).decode("utf-8")
+    async with httpx.AsyncClient(timeout=40) as client:
+        res = await client.post(
+            "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+            headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
+            json={"raw": raw},
+        )
+    if res.status_code >= 400:
+        raise HTTPException(status_code=400, detail=f"gmail_send_failed: {res.text[:240]}")
+    return res.json()
+
+
+async def gmail_has_reply_for_token(access_token: str, to_email: str, token: str) -> bool:
+    query = f'in:inbox from:{to_email} "RC-{token}" newer_than:120d'
+    async with httpx.AsyncClient(timeout=40) as client:
+        res = await client.get(
+            "https://gmail.googleapis.com/gmail/v1/users/me/messages",
+            headers={"Authorization": f"Bearer {access_token}"},
+            params={"q": query, "maxResults": 1},
+        )
+    if res.status_code >= 400:
+        return False
+    body = res.json()
+    return bool(body.get("messages"))
+
+
+async def pipedrive_create_deal_for_reply(
+    user_email: str,
+    organization_name: str,
+    organization_domain: str,
+    to_email: str,
+) -> Optional[str]:
+    pd = load_pipedrive_connection(user_email)
+    if not pd or not pd.get("domain") or not pd.get("api_token"):
+        return None
+    domain = pd["domain"].strip()
+    token = pd["api_token"].strip()
+    title = f"Reply from {organization_name or organization_domain} ({to_email})"
+    payload = {"title": title}
+    async with httpx.AsyncClient(timeout=30) as client:
+        res = await client.post(
+            f"https://{domain}.pipedrive.com/api/v1/deals",
+            params={"api_token": token},
+            json=payload,
+        )
+    if res.status_code >= 400:
+        return None
+    try:
+        data = res.json().get("data") or {}
+        deal_id = data.get("id")
+        return str(deal_id) if deal_id is not None else None
+    except Exception:
+        return None
+
+
+def campaign_status_for_user(user_email: str) -> dict[str, Any]:
+    with db_conn() as conn:
+        row = conn.execute(
+            """
+            SELECT campaign_id,status,followups_count,total_targets,sent_count,replied_count,deals_created,started_at,updated_at
+            FROM campaigns
+            WHERE user_email=?
+            ORDER BY started_at DESC
+            LIMIT 1
+            """,
+            (user_email,),
+        ).fetchone()
+    if not row:
+        return {"exists": False}
+    return {
+        "exists": True,
+        "campaign_id": str(row["campaign_id"] or ""),
+        "status": str(row["status"] or ""),
+        "followups_count": int(row["followups_count"] or 0),
+        "total_targets": int(row["total_targets"] or 0),
+        "sent_count": int(row["sent_count"] or 0),
+        "replied_count": int(row["replied_count"] or 0),
+        "deals_created": int(row["deals_created"] or 0),
+        "started_at": str(row["started_at"] or ""),
+        "updated_at": str(row["updated_at"] or ""),
+    }
+
+
+async def process_active_campaigns_once() -> None:
+    with db_conn() as conn:
+        campaigns = conn.execute(
+            "SELECT campaign_id,user_email,followups_count,status FROM campaigns WHERE status='running'"
+        ).fetchall()
+    now = datetime.now(timezone.utc)
+    now_s = now_iso()
+    for c in campaigns:
+        campaign_id = str(c["campaign_id"])
+        user_email = str(c["user_email"]).strip().lower()
+        gmail_conn = load_gmail_connection(user_email)
+        if not gmail_conn:
+            continue
+        try:
+            access_token = await ensure_valid_access_token(gmail_conn)
+        except Exception:
+            continue
+        with db_conn() as conn:
+            targets = conn.execute(
+                """
+                SELECT organization_domain,organization_name,to_email,token,draft_text,sent_count,max_sends,next_send_at,
+                       replied_at,pipedrive_deal_id,status
+                FROM campaign_targets
+                WHERE campaign_id=? AND status='active'
+                """,
+                (campaign_id,),
+            ).fetchall()
+        sent_inc = 0
+        replied_inc = 0
+        deals_inc = 0
+        for t in targets:
+            org_domain = str(t["organization_domain"] or "")
+            org_name = str(t["organization_name"] or org_domain)
+            to_email = str(t["to_email"] or "").strip().lower()
+            token = str(t["token"] or "")
+            draft_text = str(t["draft_text"] or "")
+            sent_count = int(t["sent_count"] or 0)
+            max_sends = int(t["max_sends"] or 1)
+            next_send_at = parse_iso(str(t["next_send_at"] or now_s))
+            replied_at = str(t["replied_at"] or "")
+            deal_id = str(t["pipedrive_deal_id"] or "")
+            status = str(t["status"] or "active")
+            if status != "active":
+                continue
+
+            if not replied_at and sent_count > 0 and to_email and token:
+                has_reply = await gmail_has_reply_for_token(access_token, to_email, token)
+                if has_reply:
+                    new_deal_id = deal_id or (await pipedrive_create_deal_for_reply(user_email, org_name, org_domain, to_email))
+                    with db_conn() as conn:
+                        conn.execute(
+                            """
+                            UPDATE campaign_targets
+                            SET replied_at=?, status='replied', pipedrive_deal_id=?, updated_at=?
+                            WHERE campaign_id=? AND organization_domain=? AND to_email=?
+                            """,
+                            (now_s, new_deal_id or deal_id, now_s, campaign_id, org_domain, to_email),
+                        )
+                    replied_inc += 1
+                    if new_deal_id and not deal_id:
+                        deals_inc += 1
+                    continue
+
+            if replied_at:
+                continue
+            if sent_count >= max_sends:
+                with db_conn() as conn:
+                    conn.execute(
+                        """
+                        UPDATE campaign_targets
+                        SET status='completed', updated_at=?
+                        WHERE campaign_id=? AND organization_domain=? AND to_email=?
+                        """,
+                        (now_s, campaign_id, org_domain, to_email),
+                    )
+                continue
+            if next_send_at > now:
+                continue
+
+            subject = campaign_subject(org_name, sent_count, token)
+            body = campaign_body(draft_text, sent_count)
+            try:
+                await gmail_send_plain_message(access_token, to_email, subject, body)
+            except Exception:
+                continue
+
+            next_send = (now + timedelta(days=2)).replace(microsecond=0).isoformat()
+            with db_conn() as conn:
+                conn.execute(
+                    """
+                    UPDATE campaign_targets
+                    SET sent_count=sent_count+1, last_sent_at=?, next_send_at=?, updated_at=?
+                    WHERE campaign_id=? AND organization_domain=? AND to_email=?
+                    """,
+                    (now_s, next_send, now_s, campaign_id, org_domain, to_email),
+                )
+            sent_inc += 1
+
+        with db_conn() as conn:
+            active_left = conn.execute(
+                "SELECT COUNT(*) AS c FROM campaign_targets WHERE campaign_id=? AND status='active'",
+                (campaign_id,),
+            ).fetchone()
+            running_status = "done" if int(active_left["c"] or 0) == 0 else "running"
+            conn.execute(
+                """
+                UPDATE campaigns
+                SET sent_count=sent_count+?, replied_count=replied_count+?, deals_created=deals_created+?,
+                    status=?, updated_at=?
+                WHERE campaign_id=?
+                """,
+                (sent_inc, replied_inc, deals_inc, running_status, now_s, campaign_id),
+            )
+
+
+async def campaign_worker_loop() -> None:
+    while True:
+        try:
+            await process_active_campaigns_once()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            pass
+        await asyncio.sleep(60)
 
 
 def build_rows_from_orgs(orgs: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
@@ -946,6 +1378,11 @@ async def generate_queue_result(
             years = list(range(current_year, 2014, -1))
             dedup: dict[str, dict[str, Any]] = {}
             for year in years:
+                should_exit = await wait_if_queue_job_paused(job_key)
+                if should_exit:
+                    raise HTTPException(status_code=404, detail="job_not_found")
+                if job_key:
+                    set_queue_job_state(job_key, status="running")
                 if job_key:
                     set_queue_job_state(job_key, message=f"Scanning mailbox year {year}...")
                 year_q = (
@@ -988,6 +1425,11 @@ async def generate_queue_result(
                     mids.append(mid)
 
             for i in range(0, len(mids), batch_size):
+                should_exit = await wait_if_queue_job_paused(job_key)
+                if should_exit:
+                    raise HTTPException(status_code=404, detail="job_not_found")
+                if job_key:
+                    set_queue_job_state(job_key, status="running")
                 if job_key and mids:
                     pct = int((i / max(1, len(mids))) * 100)
                     set_queue_job_state(
@@ -1178,7 +1620,7 @@ async def generate_queue(payload: QueuePayload) -> dict[str, Any]:
         (
             key
             for key, job in QUEUE_JOBS.items()
-            if job.get("user_email") == user_email and job.get("status") == "running"
+            if job.get("user_email") == user_email and job.get("status") in {"running", "paused"}
         ),
         None,
     )
@@ -1197,6 +1639,7 @@ async def generate_queue(payload: QueuePayload) -> dict[str, Any]:
         "job_id": job_id,
         "user_email": user_email,
         "status": "running",
+        "pause_requested": False,
         "message": "Starting...",
         "created_at": now_iso(),
         "finished_at": "",
@@ -1218,11 +1661,38 @@ def generate_queue_status(email: str = Query(...), job_id: str = Query(...)) -> 
         "ok": True,
         "job_id": job["job_id"],
         "status": job.get("status", "unknown"),
+        "paused": bool(job.get("pause_requested", False)),
         "message": job.get("message", ""),
         "error": job.get("error", ""),
         "finished_at": job.get("finished_at", ""),
         "summary": job.get("result_summary", {}),
     }
+
+
+@app.post("/api/queue/generate/pause")
+def pause_queue_job(payload: QueueJobControlPayload) -> dict[str, Any]:
+    user_email = str(payload.email).strip().lower()
+    key = queue_job_key(user_email, payload.job_id.strip())
+    job = QUEUE_JOBS.get(key)
+    if not job:
+        raise HTTPException(status_code=404, detail="job_not_found")
+    if job.get("status") not in {"running", "paused"}:
+        raise HTTPException(status_code=400, detail="job_not_running")
+    set_queue_job_state(key, pause_requested=True, status="paused", message="Pause requested...")
+    return {"ok": True, "job_id": job["job_id"], "status": "paused"}
+
+
+@app.post("/api/queue/generate/resume")
+def resume_queue_job(payload: QueueJobControlPayload) -> dict[str, Any]:
+    user_email = str(payload.email).strip().lower()
+    key = queue_job_key(user_email, payload.job_id.strip())
+    job = QUEUE_JOBS.get(key)
+    if not job:
+        raise HTTPException(status_code=404, detail="job_not_found")
+    if job.get("status") not in {"running", "paused"}:
+        raise HTTPException(status_code=400, detail="job_not_running")
+    set_queue_job_state(key, pause_requested=False, status="running", message="Resumed")
+    return {"ok": True, "job_id": job["job_id"], "status": "running"}
 
 
 @app.post("/api/drafts/generate")
@@ -1235,31 +1705,243 @@ def generate_drafts(payload: DraftPayload) -> dict[str, Any]:
     rows = load_queue_rows(user_email)
     approved = [r for r in rows if r.get("status") == "approved"]
 
-    drafts: list[dict[str, Any]] = []
-    for r in approved:
-        to_email = str(r.get("primary_contact_email", "")).strip().lower()
-        if not to_email:
-            continue
-        first_name = infer_first_name(str(r.get("primary_contact_name", "")), to_email)
-        body = (
-            f"Hi {first_name},\\n\\n"
-            "It has been a while since we last spoke.\\n"
-            "Interested in your current priorities and whether new digital solutions could be relevant.\\n\\n"
-            f"Best,\\n{owner_name}"
-        )
-        drafts.append(
-            {
-                "organization": r.get("organization_name") or r.get("organization_domain"),
-                "organization_domain": r.get("organization_domain", ""),
-                "to": to_email,
-                "primary_contact_name": r.get("primary_contact_name", ""),
-                "topics": r.get("topics", []),
-                "summary": r.get("summary", ""),
-                "draft": body,
-            }
-        )
+    generated: list[tuple[str, str]] = []
+    ts = now_iso()
+    with db_conn() as conn:
+        for r in approved:
+            org_domain = str(r.get("organization_domain", "")).strip().lower()
+            to_email = str(r.get("primary_contact_email", "")).strip().lower()
+            if not org_domain or not to_email:
+                continue
+            first_name = infer_first_name(str(r.get("primary_contact_name", "")), to_email)
+            body = (
+                f"Hi {first_name},\n\n"
+                "It has been a while since we last spoke.\n"
+                "Interested in your current priorities and whether new digital solutions could be relevant.\n\n"
+                f"Best,\n{owner_name}"
+            )
+            topics_json = json.dumps((r.get("topics") or [])[:8], ensure_ascii=False)
+            org_name = str(r.get("organization_name") or org_domain)
+            summary = str(r.get("summary") or "")
+            conn.execute(
+                """
+                INSERT INTO followup_drafts(
+                  user_email, organization_domain, organization_name, to_email, primary_contact_name,
+                  context_summary, topics_json, draft_text, final_text, status, created_at, updated_at
+                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+                ON CONFLICT(user_email, organization_domain, to_email) DO UPDATE SET
+                  organization_name=excluded.organization_name,
+                  primary_contact_name=excluded.primary_contact_name,
+                  context_summary=excluded.context_summary,
+                  topics_json=excluded.topics_json,
+                  draft_text=excluded.draft_text,
+                  final_text=CASE
+                    WHEN followup_drafts.final_text IS NULL OR followup_drafts.final_text=''
+                    THEN excluded.draft_text
+                    ELSE followup_drafts.final_text
+                  END,
+                  status='pending',
+                  updated_at=excluded.updated_at
+                """,
+                (
+                    user_email,
+                    org_domain,
+                    org_name,
+                    to_email,
+                    str(r.get("primary_contact_name") or ""),
+                    summary,
+                    topics_json,
+                    body,
+                    body,
+                    "pending",
+                    ts,
+                    ts,
+                ),
+            )
+            generated.append((org_domain, to_email))
 
-    return {"ok": True, "count": len(drafts), "owner_name": owner_name, "drafts": drafts}
+        existing = conn.execute(
+            "SELECT organization_domain,to_email FROM followup_drafts WHERE user_email=?",
+            (user_email,),
+        ).fetchall()
+        existing_set = {(str(x["organization_domain"]), str(x["to_email"])) for x in existing}
+        generated_set = set(generated)
+        for org_domain, to_email in existing_set - generated_set:
+            conn.execute(
+                "DELETE FROM followup_drafts WHERE user_email=? AND organization_domain=? AND to_email=?",
+                (user_email, org_domain, to_email),
+            )
+
+    drafts = load_followup_drafts(user_email)
+    summary = drafts_summary(drafts)
+    return {
+        "ok": True,
+        "count": len(drafts),
+        "owner_name": owner_name,
+        "summary": summary,
+        "drafts": drafts,
+    }
+
+
+@app.get("/api/drafts")
+def list_drafts(email: str = Query(...)) -> dict[str, Any]:
+    user_email = email.strip().lower()
+    drafts = load_followup_drafts(user_email)
+    return {"ok": True, "count": len(drafts), "summary": drafts_summary(drafts), "drafts": drafts}
+
+
+@app.get("/api/drafts/readiness")
+def drafts_readiness(email: str = Query(...)) -> dict[str, Any]:
+    user_email = email.strip().lower()
+    drafts = load_followup_drafts(user_email)
+    return {"ok": True, "summary": drafts_summary(drafts)}
+
+
+@app.post("/api/drafts/update")
+def update_draft_text(payload: DraftUpdatePayload) -> dict[str, Any]:
+    user_email = str(payload.email).strip().lower()
+    org_domain = payload.organization_domain.strip().lower()
+    to_email = str(payload.to).strip().lower()
+    final_text = payload.final_text.strip()
+    with db_conn() as conn:
+        cur = conn.execute(
+            """
+            UPDATE followup_drafts
+            SET final_text=?, updated_at=?
+            WHERE user_email=? AND organization_domain=? AND to_email=?
+            """,
+            (final_text, now_iso(), user_email, org_domain, to_email),
+        )
+    if cur.rowcount < 1:
+        raise HTTPException(status_code=404, detail="draft_not_found")
+    return {"ok": True}
+
+
+@app.post("/api/drafts/decision")
+def update_draft_decision(payload: DraftDecisionPayload) -> dict[str, Any]:
+    user_email = str(payload.email).strip().lower()
+    org_domain = payload.organization_domain.strip().lower()
+    to_email = str(payload.to).strip().lower()
+    status = payload.status.strip().lower()
+    if status not in {"pending", "approved", "rejected"}:
+        raise HTTPException(status_code=400, detail="invalid_status")
+    with db_conn() as conn:
+        cur = conn.execute(
+            """
+            UPDATE followup_drafts
+            SET status=?, updated_at=?
+            WHERE user_email=? AND organization_domain=? AND to_email=?
+            """,
+            (status, now_iso(), user_email, org_domain, to_email),
+        )
+    if cur.rowcount < 1:
+        raise HTTPException(status_code=404, detail="draft_not_found")
+    return {"ok": True, "status": status}
+
+
+@app.post("/api/campaign/start")
+def start_campaign(payload: CampaignStartPayload) -> dict[str, Any]:
+    user_email = str(payload.email).strip().lower()
+    followups_count = int(payload.followups_count)
+    if followups_count not in {3, 5}:
+        raise HTTPException(status_code=400, detail="followups_count_must_be_3_or_5")
+
+    drafts = load_followup_drafts(user_email)
+    approved = [d for d in drafts if d.get("status") == "approved" and str(d.get("to") or "").strip()]
+    if not approved:
+        raise HTTPException(status_code=400, detail="no_approved_drafts")
+
+    with db_conn() as conn:
+        existing = conn.execute(
+            "SELECT campaign_id FROM campaigns WHERE user_email=? AND status='running' ORDER BY started_at DESC LIMIT 1",
+            (user_email,),
+        ).fetchone()
+        if existing:
+            return {"ok": True, "campaign_id": str(existing["campaign_id"]), "already_running": True}
+
+    campaign_id = secrets.token_urlsafe(10)
+    ts = now_iso()
+    with db_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO campaigns(
+              campaign_id,user_email,status,followups_count,total_targets,sent_count,replied_count,deals_created,started_at,updated_at
+            ) VALUES(?,?,?,?,?,?,?,?,?,?)
+            """,
+            (campaign_id, user_email, "running", followups_count, len(approved), 0, 0, 0, ts, ts),
+        )
+        for d in approved:
+            org_domain = str(d.get("organization_domain") or "").strip().lower()
+            org_name = str(d.get("organization") or org_domain)
+            to_email = str(d.get("to") or "").strip().lower()
+            token = secrets.token_hex(4).upper()
+            final_text = str(d.get("final_text") or d.get("draft") or "").strip()
+            if not org_domain or not to_email or not final_text:
+                continue
+            conn.execute(
+                """
+                INSERT INTO campaign_targets(
+                  campaign_id,user_email,organization_domain,organization_name,to_email,token,draft_text,
+                  sent_count,max_sends,next_send_at,status,updated_at
+                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+                """,
+                (
+                    campaign_id,
+                    user_email,
+                    org_domain,
+                    org_name,
+                    to_email,
+                    token,
+                    final_text,
+                    0,
+                    1 + followups_count,
+                    ts,
+                    "active",
+                    ts,
+                ),
+            )
+
+    return {"ok": True, "campaign_id": campaign_id, "targets": len(approved)}
+
+
+@app.get("/api/campaign/status")
+def get_campaign_status(email: str = Query(...)) -> dict[str, Any]:
+    user_email = email.strip().lower()
+    status = campaign_status_for_user(user_email)
+    if not status.get("exists"):
+        return {"ok": True, "campaign": status, "targets": []}
+
+    with db_conn() as conn:
+        targets = conn.execute(
+            """
+            SELECT organization_domain,organization_name,to_email,sent_count,max_sends,last_sent_at,next_send_at,replied_at,status,pipedrive_deal_id
+            FROM campaign_targets
+            WHERE campaign_id=?
+            ORDER BY
+              CASE status WHEN 'active' THEN 0 WHEN 'replied' THEN 1 ELSE 2 END,
+              organization_name ASC
+            """,
+            (status["campaign_id"],),
+        ).fetchall()
+    return {
+        "ok": True,
+        "campaign": status,
+        "targets": [
+            {
+                "organization_domain": str(t["organization_domain"] or ""),
+                "organization_name": str(t["organization_name"] or ""),
+                "to": str(t["to_email"] or ""),
+                "sent_count": int(t["sent_count"] or 0),
+                "max_sends": int(t["max_sends"] or 0),
+                "last_sent_at": str(t["last_sent_at"] or ""),
+                "next_send_at": str(t["next_send_at"] or ""),
+                "replied_at": str(t["replied_at"] or ""),
+                "status": str(t["status"] or ""),
+                "pipedrive_deal_id": str(t["pipedrive_deal_id"] or ""),
+            }
+            for t in targets
+        ],
+    }
 
 
 if __name__ == "__main__":
