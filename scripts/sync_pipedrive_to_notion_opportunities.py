@@ -274,6 +274,13 @@ def resolve_doc_links_from_notes(doc_hints: dict, notes: List[dict]) -> Dict[str
 def resolve_field_by_name(deal: dict, field_name: str, deal_field_keys: Dict[str, str]):
     key = deal_field_keys.get(field_name)
     if not key:
+        # case-insensitive fallback for localized/custom labels
+        fname = (field_name or "").strip().lower()
+        for n, k in deal_field_keys.items():
+            if str(n).strip().lower() == fname:
+                key = k
+                break
+    if not key:
         return None
     return deal.get(key)
 
@@ -307,31 +314,28 @@ def find_first_url_like(value) -> str:
     return ""
 
 
-def find_linkedin_url(data: dict) -> str:
-    if not isinstance(data, dict):
-        return ""
-    for k, v in data.items():
-        key = str(k).lower()
-        if "linkedin" not in key:
-            continue
-        u = find_first_url_like(v)
-        if u:
-            return u
-    for v in data.values():
-        if isinstance(v, dict):
+def find_linkedin_url(data) -> str:
+    if isinstance(data, dict):
+        for k, v in data.items():
+            key = str(k).lower()
+            if "linkedin" in key:
+                u = find_first_url_like(v)
+                if u:
+                    return u
+        for v in data.values():
             u = find_linkedin_url(v)
             if u:
                 return u
-        elif isinstance(v, list):
-            for item in v:
-                if isinstance(item, dict):
-                    u = find_linkedin_url(item)
-                    if u:
-                        return u
-                else:
-                    u = find_first_url_like(item)
-                    if "linkedin.com" in u.lower():
-                        return u
+        return ""
+    if isinstance(data, list):
+        for item in data:
+            u = find_linkedin_url(item)
+            if u:
+                return u
+        return ""
+    u = find_first_url_like(data)
+    if u and "linkedin.com" in u.lower():
+        return u
     return ""
 
 
@@ -359,6 +363,17 @@ def build_doc_links(deal: dict, deal_field_keys: Dict[str, str], notes: List[dic
         for alias in estimate_aliases:
             val = resolve_field_by_name(deal, alias, deal_field_keys)
             url = find_first_url_like(val)
+            if url:
+                out["estimate"] = url
+                break
+    if not out["estimate"]:
+        # Generic fallback: any URL field whose label hints materials/estimation scope.
+        hint_tokens = ("папк", "material", "estimate", "estimation")
+        for field_name, field_key in deal_field_keys.items():
+            lname = str(field_name).strip().lower()
+            if not any(t in lname for t in hint_tokens):
+                continue
+            url = find_first_url_like(deal.get(field_key))
             if url:
                 out["estimate"] = url
                 break
@@ -887,7 +902,8 @@ def run_sync(args):
                 "pipedrive_url": pipedrive_url,
                 "days_in_stage": days_in_stage,
                 "sla_color": sla_color,
-                "readiness_percent": readiness_percent,
+                # Notion percent format expects fraction (0..1), not 0..100.
+                "readiness_percent": round(readiness_percent / 100.0, 4),
                 "gate_status": gate_status,
                 "sync_notes": sync_note,
                 "docs_status": docs_status,
