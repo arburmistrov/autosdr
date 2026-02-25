@@ -290,6 +290,97 @@ def truncate_text(text: str, limit: int = 260) -> str:
     return t[: max(0, limit - 1)].rstrip() + "…"
 
 
+def split_sentences(text: str) -> List[str]:
+    if not text:
+        return []
+    parts = re.split(r"(?<=[.!?])\s+|[;\n]+", text)
+    out = []
+    for p in parts:
+        s = clean_text(p)
+        if s:
+            out.append(s)
+    return out
+
+
+NOISE_NOTE_PATTERNS = [
+    r"\bmoved (this )?lead\b",
+    r"\bassigned to\b",
+    r"\bowner changed\b",
+    r"\bstage (changed|updated)\b",
+    r"\bstatus (changed|updated)\b",
+    r"\bpipeline (changed|updated)\b",
+    r"\bactivity (created|updated|done)\b",
+    r"\btask (created|updated|done)\b",
+]
+
+
+def is_noise_sentence(text: str) -> bool:
+    low = (text or "").strip().lower()
+    if not low:
+        return True
+    for pat in NOISE_NOTE_PATTERNS:
+        if re.search(pat, low):
+            return True
+    return False
+
+
+def normalize_for_dedupe(text: str) -> str:
+    low = (text or "").lower()
+    low = re.sub(r"[^a-z0-9 ]+", " ", low)
+    low = re.sub(r"\s+", " ", low).strip()
+    return low
+
+
+INTENT_HINTS = [
+    "interested",
+    "need",
+    "needs",
+    "wants",
+    "looking for",
+    "request",
+    "scope",
+    "proposal",
+    "budget",
+    "timeline",
+    "mvp",
+    "ai",
+    "governance",
+    "assessment",
+    "implementation",
+]
+
+
+def pick_intent_sentence(sentences: List[str]) -> str:
+    def has_hint(text: str, hint: str) -> bool:
+        if " " in hint:
+            return hint in text
+        return re.search(rf"\b{re.escape(hint)}\b", text) is not None
+
+    for s in sentences:
+        low = s.lower()
+        if any(has_hint(low, h) for h in INTENT_HINTS):
+            return s
+    return sentences[0] if sentences else ""
+
+
+def extract_need_clause(sentence: str) -> str:
+    s = (sentence or "").strip()
+    low = s.lower()
+    patterns = [
+        r"interested in ([^.]+)",
+        r"wants? ([^.]+)",
+        r"needs? ([^.]+)",
+        r"looking for ([^.]+)",
+        r"request(?:ed)? ([^.]+)",
+    ]
+    for pat in patterns:
+        m = re.search(pat, low, flags=re.IGNORECASE)
+        if m:
+            raw = s[m.start(1):m.end(1)]
+            return clean_text(raw).rstrip(".")
+    return clean_text(s).rstrip(".")
+
+
 def summarize_deal(
     title: str,
     company_name: str,
@@ -316,40 +407,58 @@ def summarize_deal(
     if not note_texts:
         return ""
 
-    joined = " ".join(note_texts).lower()
+    all_sentences = []
+    for t in note_texts:
+        all_sentences.extend(split_sentences(t))
+
+    filtered = []
+    seen = set()
+    for s in all_sentences:
+        if is_noise_sentence(s):
+            continue
+        key = normalize_for_dedupe(s)
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        filtered.append(s)
+
+    # If there is no substantive context after filtering, keep summary empty.
+    if not filtered:
+        return ""
+
+    joined = " ".join(filtered).lower()
 
     # Origin
     origin = ""
-    m = re.search(r"lead from ([a-z0-9& .,'/-]{2,60})", joined, flags=re.IGNORECASE)
+    m = re.search(r"lead from ([^,.;]{2,60})", joined, flags=re.IGNORECASE)
     if m:
-        origin = f"{m.group(1).strip().rstrip('.') } lead"
+        origin = f"{m.group(1).strip().rstrip('.')} lead"
     else:
         client = company_name or contact_name
         if client:
             origin = f"{client} lead"
 
-    # Need from the first substantive note
-    need = ""
-    for txt in reversed(note_texts):
-        low = txt.lower()
-        if any(k in low for k in ["interested", "need", "wants", "looking for", "request"]):
-            need = truncate_text(txt, 120)
-            break
-    if not need:
-        need = truncate_text(note_texts[-1], 120)
+    # Need from substantive sentences.
+    need = truncate_text(extract_need_clause(pick_intent_sentence(filtered)), 120)
 
-    # Current status from latest note
-    latest = note_texts[0].lower()
-    if any(k in latest for k in ["sent him an email", "sent email", "proposed slots", "waiting", "awaiting"]):
+    # Current status from latest raw note: waiting/scheduled/proposal.
+    latest = (note_texts[0] if note_texts else "").lower()
+    if any(k in latest for k in ["sent him an email", "sent email", "proposed slots", "waiting", "awaiting", "followed up", "expect next week", "expect update"]):
         status = "waiting for feedback"
     elif any(k in latest for k in ["meeting booked", "schedule", "call", "q&a"]):
         status = "next call in progress"
     elif any(k in latest for k in ["proposal", "estimate", "deck", "presentation"]):
         status = "proposal shared, waiting for feedback"
     else:
-        status = truncate_text(note_texts[0], 80)
+        status = truncate_text(filtered[0], 80)
 
-    parts = [p for p in [origin, need, status] if p]
+    parts = []
+    for p in [origin, need, status]:
+        if not p:
+            continue
+        if parts and normalize_for_dedupe(parts[-1]) == normalize_for_dedupe(p):
+            continue
+        parts.append(p)
     return "; ".join(parts)
 
 
