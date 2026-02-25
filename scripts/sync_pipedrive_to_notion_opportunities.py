@@ -18,6 +18,7 @@ DEFAULT_REPORT = ROOT / "data" / "output" / "notion_sync_report.json"
 NOTION_VERSION = "2022-06-28"
 URL_RE = re.compile(r"https?://[^\s<>)\"']+", re.IGNORECASE)
 SIZE_RE = re.compile(r"\[(S|M|L|M/L|L/XL)\]", re.IGNORECASE)
+COUNTRY_RE = re.compile(r"\[([A-Za-z][A-Za-z \-]{1,30})\]")
 
 
 def infer_size_from_title(title: str) -> str:
@@ -62,6 +63,20 @@ def infer_confidence(stage_name: str) -> str:
     return "Low"
 
 
+def infer_country_from_title(title: str) -> str:
+    t = (title or "")
+    matches = COUNTRY_RE.findall(t)
+    for m in matches:
+        val = (m or "").strip()
+        if not val:
+            continue
+        up = val.upper()
+        if up in {"S", "M", "L", "MVP", "WEB", "MOBILE", "AI"}:
+            continue
+        return val
+    return ""
+
+
 def compact_owner(owner_name: str) -> str:
     name = (owner_name or "").strip()
     if not name:
@@ -83,6 +98,9 @@ def build_card_title(
 ) -> str:
     title = (base_title or "").strip() or "Untitled deal"
     right = []
+    country = infer_country_from_title(title)
+    if country:
+        right.append(country)
     if size:
         right.append(size)
     if domains:
@@ -723,7 +741,12 @@ def run_sync(args):
                 str(nested_get(deal, "person_id.name") or deal.get("person_name") or "").strip()
             )
             owner_name = (
-                str(nested_get(deal, "owner_id.name") or deal.get("user_name") or "").strip()
+                str(
+                    nested_get(deal, "owner_id.name")
+                    or nested_get(deal, "user_id.name")
+                    or deal.get("user_name")
+                    or ""
+                ).strip()
             )
             expected_close = parse_date(str(deal.get("expected_close_date") or "")) or None
             deal_value = deal.get("value")
