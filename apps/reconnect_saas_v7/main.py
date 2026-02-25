@@ -821,17 +821,24 @@ async def generate_queue(payload: QueuePayload) -> dict[str, Any]:
         max_msgs = max(100, min(5000, int(payload.max_messages)))
 
         async with httpx.AsyncClient(timeout=40) as client:
-            base_q = "-in:chats -category:promotions -category:social -category:updates"
-            recent_target = max(100, int(max_msgs * 0.65))
-            legacy_target = max(50, max_msgs - recent_target)
-            recent_ids = await fetch_gmail_message_ids(client, access_token, base_q, recent_target)
-            # Force historical coverage: include messages before 2016 (covers 2015 and older).
-            legacy_ids = await fetch_gmail_message_ids(client, access_token, f"{base_q} before:2016/01/01", legacy_target)
+            base_q = "-in:chats -category:promotions -category:social -category:updates after:2015/01/01"
+            current_year = datetime.now(timezone.utc).year
+            years = list(range(current_year, 2014, -1))
+            per_year_target = max(60, max_msgs // max(1, len(years)))
             dedup: dict[str, dict[str, Any]] = {}
-            for it in recent_ids + legacy_ids:
-                mid = str(it.get("id", "")).strip()
-                if mid:
-                    dedup[mid] = it
+            for year in years:
+                if len(dedup) >= max_msgs:
+                    break
+                year_limit = min(per_year_target, max_msgs - len(dedup))
+                year_q = (
+                    "-in:chats -category:promotions -category:social -category:updates "
+                    f"after:{year}/01/01 before:{year + 1}/01/01"
+                )
+                year_ids = await fetch_gmail_message_ids(client, access_token, year_q, year_limit)
+                for it in year_ids:
+                    mid = str(it.get("id", "")).strip()
+                    if mid:
+                        dedup[mid] = it
             ids = list(dedup.values())
             if len(ids) < max_msgs:
                 refill = await fetch_gmail_message_ids(client, access_token, base_q, max_msgs)
@@ -1041,7 +1048,7 @@ async def generate_queue(payload: QueuePayload) -> dict[str, Any]:
             "summary": {
                 "organizations": len(saved_rows),
                 "messages_scanned": len(ids),
-                "legacy_before_2016_sampled": len(legacy_ids),
+                "scan_range": "2015_to_today",
                 "connected_email": gmail_conn.connected_email,
                 "pending": sum(1 for r in saved_rows if r.get("status") == "pending"),
                 "approved": sum(1 for r in saved_rows if r.get("status") == "approved"),
