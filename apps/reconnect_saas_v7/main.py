@@ -931,7 +931,7 @@ def drafts_summary(drafts: list[dict[str, Any]]) -> dict[str, Any]:
 def campaign_subject(organization: str, send_index: int, token: str, initial_subject: str) -> str:
     if send_index <= 0:
         base = (initial_subject or "").strip() or "Quick reconnect"
-        return f"[RC-{token}] {base}"
+        return base
     variants = [
         "Following up on my previous note",
         "Sharing one more idea for your team",
@@ -940,7 +940,7 @@ def campaign_subject(organization: str, send_index: int, token: str, initial_sub
         "Closing the loop for now",
     ]
     line = variants[(send_index - 1) % len(variants)]
-    return f"[RC-{token}] {line} — {organization}"
+    return f"{line} — {organization}"
 
 
 def campaign_body(base_text: str, send_index: int) -> str:
@@ -974,18 +974,47 @@ async def gmail_send_plain_message(access_token: str, to_email: str, subject: st
     return res.json()
 
 
-async def gmail_has_reply_for_token(access_token: str, to_email: str, token: str) -> bool:
-    query = f'in:inbox from:{to_email} "RC-{token}" newer_than:120d'
+def gmail_query_date_from_iso(iso_ts: str) -> str:
+    dt = parse_iso(iso_ts)
+    return f"{dt.year:04d}/{dt.month:02d}/{dt.day:02d}"
+
+
+async def gmail_has_reply_after(access_token: str, to_email: str, after_iso: str) -> bool:
+    query = f'in:inbox from:{to_email} after:{gmail_query_date_from_iso(after_iso)}'
     async with httpx.AsyncClient(timeout=40) as client:
         res = await client.get(
             "https://gmail.googleapis.com/gmail/v1/users/me/messages",
             headers={"Authorization": f"Bearer {access_token}"},
-            params={"q": query, "maxResults": 1},
+            params={"q": query, "maxResults": 5},
         )
     if res.status_code >= 400:
         return False
     body = res.json()
-    return bool(body.get("messages"))
+    msgs = body.get("messages") or []
+    if not msgs:
+        return False
+    after_dt = parse_iso(after_iso)
+    async with httpx.AsyncClient(timeout=40) as client:
+        for m in msgs:
+            mid = str((m or {}).get("id", "")).strip()
+            if not mid:
+                continue
+            md = await client.get(
+                f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{mid}",
+                headers={"Authorization": f"Bearer {access_token}"},
+                params={"format": "minimal"},
+            )
+            if md.status_code >= 400:
+                continue
+            try:
+                ib = md.json()
+                internal_ms = int(str(ib.get("internalDate", "0")) or "0")
+                m_dt = datetime.fromtimestamp(internal_ms / 1000, tz=timezone.utc)
+                if m_dt > after_dt:
+                    return True
+            except Exception:
+                continue
+    return False
 
 
 async def pipedrive_create_deal_for_reply(
@@ -1091,8 +1120,8 @@ async def process_active_campaigns_once() -> None:
             if status != "active":
                 continue
 
-            if not replied_at and sent_count > 0 and to_email and token:
-                has_reply = await gmail_has_reply_for_token(access_token, to_email, token)
+            if not replied_at and sent_count > 0 and to_email and last_sent_at:
+                has_reply = await gmail_has_reply_after(access_token, to_email, str(last_sent_at))
                 if has_reply:
                     new_deal_id = deal_id or (await pipedrive_create_deal_for_reply(user_email, org_name, org_domain, to_email))
                     with db_conn() as conn:
