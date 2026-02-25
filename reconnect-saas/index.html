@@ -88,25 +88,15 @@
 
     <div class="grid">
       <section class="card">
-        <h2>1) Create Workspace User</h2>
+        <h2>1) Create User</h2>
         <div class="row cols2">
           <div>
-            <label>Workspace Name</label>
-            <input id="workspace" placeholder="team-alpha" />
-          </div>
-          <div>
-            <label>User Name</label>
+            <label>Your Name</label>
             <input id="user_name" placeholder="Arseniy Burmistrov" />
           </div>
-        </div>
-        <div class="row cols2">
           <div>
-            <label>User Email (mailbox owner)</label>
+            <label>Your Email</label>
             <input id="user_email" placeholder="owner@company.com" type="email" />
-          </div>
-          <div>
-            <label>Role</label>
-            <input id="user_role" placeholder="Owner" value="Owner" />
           </div>
         </div>
         <div class="btns">
@@ -146,7 +136,6 @@
       <section class="card">
         <h2>3) Start Reconnect Pipeline</h2>
         <div class="kvs">
-          <div class="muted">Workspace</div><div id="v_workspace">-</div>
           <div class="muted">User</div><div id="v_user">-</div>
           <div class="muted">Email</div><div id="v_email">-</div>
           <div class="muted">Gmail</div><div id="v_gmail">Not connected</div>
@@ -181,12 +170,16 @@
       localStorage.setItem(storeKey, JSON.stringify(state));
     }
 
+    function deriveWorkspaceFromEmail(email) {
+      const v = String(email || '').trim().toLowerCase();
+      if (!v.includes('@')) return 'default';
+      return v.split('@')[1].replace(/[^a-z0-9.-]/g, '-') || 'default';
+    }
+
     function refresh() {
       const s = loadState();
-      $('workspace').value = s.workspace || '';
       $('user_name').value = s.user_name || '';
       $('user_email').value = s.user_email || '';
-      $('user_role').value = s.user_role || 'Owner';
       $('pd_domain').value = s.pd_domain || '';
 
       const gmailConnected = !!s.gmail_connected;
@@ -194,13 +187,12 @@
       $('gmail_state').textContent = gmailConnected ? 'Connected' : 'Not connected';
       $('gmail_state').className = gmailConnected ? 'ok' : 'warn';
 
-      $('v_workspace').textContent = s.workspace || '-';
       $('v_user').textContent = s.user_name || '-';
       $('v_email').textContent = s.user_email || '-';
       $('v_gmail').textContent = gmailConnected ? 'Connected' : 'Not connected';
       $('v_pd').textContent = pdConnected ? `Connected (${s.pd_domain})` : 'Not connected';
 
-      const ready = !!(s.workspace && s.user_name && s.user_email && gmailConnected && pdConnected);
+      const ready = !!(s.user_name && s.user_email && gmailConnected && pdConnected);
       $('generate_btn').disabled = !ready;
       $('pipeline_msg').textContent = ready
         ? 'Ready. Click "Generate approval queue".'
@@ -209,10 +201,9 @@
 
     $('save_profile').addEventListener('click', () => {
       const s = loadState();
-      s.workspace = $('workspace').value.trim();
       s.user_name = $('user_name').value.trim();
       s.user_email = $('user_email').value.trim();
-      s.user_role = $('user_role').value.trim() || 'Owner';
+      s.workspace = deriveWorkspaceFromEmail(s.user_email);
       saveState(s);
       $('profile_msg').textContent = 'User saved.';
       refresh();
@@ -273,7 +264,7 @@
       const tbody = $('approval_rows');
       tbody.innerHTML = rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('');
       $('approval_card').classList.remove('hidden');
-      $('pipeline_msg').textContent = `Queue generated for ${s.workspace}/${s.user_email}.`;
+      $('pipeline_msg').textContent = `Queue generated for ${s.user_email}.`;
     });
 
     refresh();
