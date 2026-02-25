@@ -108,6 +108,28 @@ BUSINESS_KEYWORDS = {
     "introduction",
     "next step",
 }
+GENERIC_LOCALPARTS = {
+    "info",
+    "hello",
+    "team",
+    "contact",
+    "office",
+    "admin",
+    "support",
+    "help",
+    "sales",
+    "marketing",
+    "newsletter",
+    "news",
+    "updates",
+    "events",
+    "security",
+    "notifications",
+    "noreply",
+    "no-reply",
+    "do-not-reply",
+    "donotreply",
+}
 
 EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$")
 EXTRACT_RE = re.compile(r"([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,})")
@@ -135,7 +157,7 @@ class SavePipedrivePayload(BaseModel):
 
 class QueuePayload(BaseModel):
     email: EmailStr
-    max_messages: int = 180
+    max_messages: int = 3000
 
 
 class DecisionPayload(BaseModel):
@@ -542,11 +564,25 @@ def is_noise_sender(email: str) -> bool:
     return any(p.search(local) for p in AUTOMATED_SENDER_PATTERNS)
 
 
+def is_generic_localpart(email: str) -> bool:
+    local = (email.split("@", 1)[0] if "@" in email else "").lower().strip()
+    return local in GENERIC_LOCALPARTS
+
+
+def base_domain_label(domain: str) -> str:
+    d = (domain or "").lower().strip()
+    if not d:
+        return ""
+    return d.split(".", 1)[0]
+
+
 def is_excluded_domain(domain: str, own_domain: str) -> bool:
     dom = (domain or "").lower().strip()
     if not dom:
         return True
     if own_domain and dom == own_domain:
+        return True
+    if own_domain and base_domain_label(dom) and base_domain_label(dom) == base_domain_label(own_domain):
         return True
     if dom in FREE_DOMAINS:
         return True
@@ -751,17 +787,32 @@ async def generate_queue(payload: QueuePayload) -> dict[str, Any]:
             raise HTTPException(status_code=400, detail="gmail_not_connected")
 
         access_token = await ensure_valid_access_token(gmail_conn)
-        max_msgs = max(30, min(300, int(payload.max_messages)))
+        max_msgs = max(100, min(5000, int(payload.max_messages)))
 
         async with httpx.AsyncClient(timeout=40) as client:
-            list_res = await client.get(
-                "https://gmail.googleapis.com/gmail/v1/users/me/messages",
-                params={"maxResults": max_msgs, "q": "-in:chats"},
-                headers={"Authorization": f"Bearer {access_token}"},
-            )
-            if list_res.status_code >= 400:
-                raise HTTPException(status_code=400, detail=f"gmail_list_failed: {list_res.text[:240]}")
-            ids = list_res.json().get("messages") or []
+            ids: list[dict[str, Any]] = []
+            page_token: Optional[str] = None
+            while len(ids) < max_msgs:
+                chunk_size = min(500, max_msgs - len(ids))
+                params: dict[str, Any] = {
+                    "maxResults": chunk_size,
+                    "q": "-in:chats -category:promotions -category:social -category:updates",
+                }
+                if page_token:
+                    params["pageToken"] = page_token
+                list_res = await client.get(
+                    "https://gmail.googleapis.com/gmail/v1/users/me/messages",
+                    params=params,
+                    headers={"Authorization": f"Bearer {access_token}"},
+                )
+                if list_res.status_code >= 400:
+                    raise HTTPException(status_code=400, detail=f"gmail_list_failed: {list_res.text[:240]}")
+                body = list_res.json()
+                page_items = body.get("messages") or []
+                ids.extend(page_items)
+                page_token = body.get("nextPageToken")
+                if not page_items or not page_token:
+                    break
 
             own_domain = gmail_conn.connected_email.split("@")[-1] if "@" in gmail_conn.connected_email else ""
             orgs: dict[str, dict[str, Any]] = {}
@@ -847,6 +898,8 @@ async def generate_queue(payload: QueuePayload) -> dict[str, Any]:
                             continue
                         if is_noise_sender(em):
                             continue
+                        if is_generic_localpart(em):
+                            continue
                         if em not in org["stakeholders"]:
                             org["stakeholders"][em] = {
                                 "email": em,
@@ -886,6 +939,8 @@ async def generate_queue(payload: QueuePayload) -> dict[str, Any]:
             stakeholders = list(org["stakeholders"].values())
             if not threads or not stakeholders:
                 continue
+            if all(is_generic_localpart(str(s.get("email", ""))) for s in stakeholders):
+                continue
 
             topics = summarize_topics(org["subjects"])
             last_dt = parse_iso(str(org["last_message_at"]))
@@ -907,6 +962,9 @@ async def generate_queue(payload: QueuePayload) -> dict[str, Any]:
             if all(is_noise_sender(s["email"]) for s in stakeholders):
                 auto_status = "auto_reject"
                 reasons.append("automated_senders_only")
+            if any(is_generic_localpart(s["email"]) for s in stakeholders) and len(stakeholders) <= 1:
+                auto_status = "auto_reject"
+                reasons.append("generic_mailbox_only")
             if followup_score < 45:
                 auto_status = "auto_reject"
                 reasons.append("low_relevance")
