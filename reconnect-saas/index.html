@@ -131,7 +131,7 @@
           Gmail setup:
           <br/>1) Google Cloud Console -> APIs & Services -> Credentials.
           <br/>2) Create OAuth Client ID (Web application).
-          <br/>3) Authorized redirect URI: this page URL (same path).
+          <br/>3) Authorized redirect URI: <code id="redirect_uri_hint"></code>.
           <br/>4) Paste Client ID above, then click <strong>Connect my Gmail</strong>.
         </div>
         <div style="margin-top:8px" class="btns">
@@ -190,6 +190,7 @@
   <script>
     const storeKey = 'reconnect_saas_onboarding_v1';
     const $ = (id) => document.getElementById(id);
+    const FIXED_REDIRECT_URI = 'https://arburmistrov.github.io/autosdr/reconnect-saas/';
 
     function loadState() {
       try { return JSON.parse(localStorage.getItem(storeKey) || '{}'); }
@@ -227,6 +228,7 @@
       $('pipeline_msg').textContent = ready
         ? 'Ready. Click "Generate approval queue".'
         : 'To continue: save user, connect Gmail, and add Pipedrive.';
+      $('redirect_uri_hint').textContent = FIXED_REDIRECT_URI;
     }
 
     $('save_profile').addEventListener('click', () => {
@@ -261,7 +263,7 @@
       }
       s.google_client_id = clientId;
       saveState(s);
-      const redirectUri = window.location.origin + window.location.pathname;
+      const redirectUri = FIXED_REDIRECT_URI;
       const scope = encodeURIComponent('https://www.googleapis.com/auth/gmail.readonly email profile');
       const authUrl =
         'https://accounts.google.com/o/oauth2/v2/auth' +
