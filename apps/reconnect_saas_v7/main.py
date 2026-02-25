@@ -710,6 +710,37 @@ def parse_row_payload(raw: str) -> dict[str, Any]:
     return out if isinstance(out, dict) else {}
 
 
+async def fetch_gmail_message_ids(
+    client: httpx.AsyncClient,
+    access_token: str,
+    query: str,
+    limit: int,
+) -> list[dict[str, Any]]:
+    if limit <= 0:
+        return []
+    ids: list[dict[str, Any]] = []
+    page_token: Optional[str] = None
+    while len(ids) < limit:
+        chunk_size = min(500, limit - len(ids))
+        params: dict[str, Any] = {"maxResults": chunk_size, "q": query}
+        if page_token:
+            params["pageToken"] = page_token
+        list_res = await client.get(
+            "https://gmail.googleapis.com/gmail/v1/users/me/messages",
+            params=params,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        if list_res.status_code >= 400:
+            raise HTTPException(status_code=400, detail=f"gmail_list_failed: {list_res.text[:240]}")
+        body = list_res.json()
+        page_items = body.get("messages") or []
+        ids.extend(page_items)
+        page_token = body.get("nextPageToken")
+        if not page_items or not page_token:
+            break
+    return ids[:limit]
+
+
 def load_queue_rows(user_email: str) -> list[dict[str, Any]]:
     with db_conn() as conn:
         rows = conn.execute(
@@ -790,29 +821,27 @@ async def generate_queue(payload: QueuePayload) -> dict[str, Any]:
         max_msgs = max(100, min(5000, int(payload.max_messages)))
 
         async with httpx.AsyncClient(timeout=40) as client:
-            ids: list[dict[str, Any]] = []
-            page_token: Optional[str] = None
-            while len(ids) < max_msgs:
-                chunk_size = min(500, max_msgs - len(ids))
-                params: dict[str, Any] = {
-                    "maxResults": chunk_size,
-                    "q": "-in:chats -category:promotions -category:social -category:updates",
-                }
-                if page_token:
-                    params["pageToken"] = page_token
-                list_res = await client.get(
-                    "https://gmail.googleapis.com/gmail/v1/users/me/messages",
-                    params=params,
-                    headers={"Authorization": f"Bearer {access_token}"},
-                )
-                if list_res.status_code >= 400:
-                    raise HTTPException(status_code=400, detail=f"gmail_list_failed: {list_res.text[:240]}")
-                body = list_res.json()
-                page_items = body.get("messages") or []
-                ids.extend(page_items)
-                page_token = body.get("nextPageToken")
-                if not page_items or not page_token:
-                    break
+            base_q = "-in:chats -category:promotions -category:social -category:updates"
+            recent_target = max(100, int(max_msgs * 0.65))
+            legacy_target = max(50, max_msgs - recent_target)
+            recent_ids = await fetch_gmail_message_ids(client, access_token, base_q, recent_target)
+            # Force historical coverage: include messages before 2016 (covers 2015 and older).
+            legacy_ids = await fetch_gmail_message_ids(client, access_token, f"{base_q} before:2016/01/01", legacy_target)
+            dedup: dict[str, dict[str, Any]] = {}
+            for it in recent_ids + legacy_ids:
+                mid = str(it.get("id", "")).strip()
+                if mid:
+                    dedup[mid] = it
+            ids = list(dedup.values())
+            if len(ids) < max_msgs:
+                refill = await fetch_gmail_message_ids(client, access_token, base_q, max_msgs)
+                for it in refill:
+                    mid = str(it.get("id", "")).strip()
+                    if mid and mid not in dedup:
+                        ids.append(it)
+                        dedup[mid] = it
+                    if len(ids) >= max_msgs:
+                        break
 
             own_domain = gmail_conn.connected_email.split("@")[-1] if "@" in gmail_conn.connected_email else ""
             orgs: dict[str, dict[str, Any]] = {}
@@ -1012,6 +1041,7 @@ async def generate_queue(payload: QueuePayload) -> dict[str, Any]:
             "summary": {
                 "organizations": len(saved_rows),
                 "messages_scanned": len(ids),
+                "legacy_before_2016_sampled": len(legacy_ids),
                 "connected_email": gmail_conn.connected_email,
                 "pending": sum(1 for r in saved_rows if r.get("status") == "pending"),
                 "approved": sum(1 for r in saved_rows if r.get("status") == "approved"),

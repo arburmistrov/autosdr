@@ -67,7 +67,7 @@
     </section>
 
     <section class="card">
-      <h2>2) Connect Gmail + Pipedrive</h2>
+      <h2>2) Connect Gmail (+ Pipedrive optional)</h2>
       <div class="btns" style="margin-bottom:8px;">
         <button class="primary" id="connect_gmail">Connect my Gmail</button>
         <button id="disconnect_gmail">Disconnect Gmail</button>
@@ -84,6 +84,7 @@
         <button id="disconnect_pd">Disconnect Pipedrive</button>
       </div>
       <p id="pd_msg" class="muted"></p>
+      <p class="muted">Pipedrive is optional for queue generation. You can connect it later.</p>
     </section>
 
     <section class="card">
@@ -98,6 +99,12 @@
         <button class="primary" id="generate" disabled>Generate from my Gmail history</button>
         <button id="refresh_queue" disabled>Refresh queue</button>
         <button id="generate_drafts" disabled>Generate follow-up from approved</button>
+      </div>
+      <div id="loading_wrap" class="hidden" style="margin:10px 0;">
+        <div style="height:12px;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:#f3f7f4;">
+          <div id="loading_bar" style="height:100%;width:0%;background:linear-gradient(90deg,#0d7a6b,#2b9f88);transition:width .25s;"></div>
+        </div>
+        <div id="loading_text" class="muted" style="margin-top:6px;">Scanning mailbox...</div>
       </div>
       <p id="queue_msg" class="muted"></p>
 
@@ -143,6 +150,8 @@
     const STORE = 'reconnect_saas_v7_ui';
     const $ = (id) => document.getElementById(id);
     let queueRows = [];
+    let loadingTimer = null;
+    let loadingPct = 0;
 
     function load() { try { return JSON.parse(localStorage.getItem(STORE) || '{}'); } catch { return {}; } }
     function save(v) { localStorage.setItem(STORE, JSON.stringify(v)); }
@@ -259,6 +268,30 @@
           }
         });
       });
+    }
+
+    function startLoading(label) {
+      if (loadingTimer) clearInterval(loadingTimer);
+      loadingPct = 3;
+      $('loading_wrap').classList.remove('hidden');
+      $('loading_bar').style.width = `${loadingPct}%`;
+      $('loading_text').textContent = label || 'Processing...';
+      loadingTimer = setInterval(() => {
+        loadingPct = Math.min(92, loadingPct + (loadingPct < 55 ? 5 : 2));
+        $('loading_bar').style.width = `${loadingPct}%`;
+      }, 700);
+    }
+
+    function stopLoading(doneLabel) {
+      if (loadingTimer) clearInterval(loadingTimer);
+      loadingTimer = null;
+      loadingPct = 100;
+      $('loading_bar').style.width = '100%';
+      $('loading_text').textContent = doneLabel || 'Done';
+      setTimeout(() => {
+        $('loading_wrap').classList.add('hidden');
+        $('loading_bar').style.width = '0%';
+      }, 700);
     }
 
     async function refreshStatus() {
@@ -386,6 +419,7 @@
       if (!s.email) return;
       $('queue_msg').textContent = 'Generating queue from Gmail history...';
       try {
+        startLoading('Scanning recent + legacy mailbox (incl. pre-2016)...');
         const scanSize = Math.max(100, Math.min(5000, parseInt($('scan_size').value || '3000', 10)));
         const out = await api('/api/queue/generate', { method:'POST', body: JSON.stringify({ email: s.email, max_messages: scanSize }) });
         queueRows = out.rows || [];
@@ -397,9 +431,11 @@
           approved: out.summary.approved || 0,
           rejected: out.summary.rejected || 0,
         });
-        $('queue_msg').textContent = `Done: ${out.summary.organizations} organizations from ${out.summary.messages_scanned} messages.`;
+        $('queue_msg').textContent = `Done: ${out.summary.organizations} organizations from ${out.summary.messages_scanned} messages (legacy pre-2016 sample: ${out.summary.legacy_before_2016_sampled || 0}).`;
+        stopLoading('Queue generated');
       } catch (e) {
         $('queue_msg').textContent = `Failed: ${e.message}`;
+        stopLoading('Generation failed');
       }
     });
 
