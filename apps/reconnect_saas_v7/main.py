@@ -7,6 +7,7 @@ import re
 import secrets
 import sqlite3
 import ast
+import asyncio
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -157,7 +158,7 @@ class SavePipedrivePayload(BaseModel):
 
 class QueuePayload(BaseModel):
     email: EmailStr
-    max_messages: int = 3000
+    max_messages: Optional[int] = None
 
 
 class DecisionPayload(BaseModel):
@@ -714,14 +715,14 @@ async def fetch_gmail_message_ids(
     client: httpx.AsyncClient,
     access_token: str,
     query: str,
-    limit: int,
+    limit: Optional[int] = None,
 ) -> list[dict[str, Any]]:
-    if limit <= 0:
+    if limit is not None and limit <= 0:
         return []
     ids: list[dict[str, Any]] = []
     page_token: Optional[str] = None
-    while len(ids) < limit:
-        chunk_size = min(500, limit - len(ids))
+    while True:
+        chunk_size = 500 if limit is None else min(500, max(1, limit - len(ids)))
         params: dict[str, Any] = {"maxResults": chunk_size, "q": query}
         if page_token:
             params["pageToken"] = page_token
@@ -735,10 +736,29 @@ async def fetch_gmail_message_ids(
         body = list_res.json()
         page_items = body.get("messages") or []
         ids.extend(page_items)
+        if limit is not None and len(ids) >= limit:
+            break
         page_token = body.get("nextPageToken")
         if not page_items or not page_token:
             break
-    return ids[:limit]
+    return ids if limit is None else ids[:limit]
+
+
+async def fetch_gmail_message_metadata(
+    client: httpx.AsyncClient,
+    access_token: str,
+    message_id: str,
+) -> Optional[dict[str, Any]]:
+    if not message_id:
+        return None
+    msg_res = await client.get(
+        f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{message_id}",
+        params={"format": "metadata", "metadataHeaders": ["From", "To", "Cc", "Subject"]},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    if msg_res.status_code >= 400:
+        return None
+    return msg_res.json()
 
 
 def load_queue_rows(user_email: str) -> list[dict[str, Any]]:
@@ -818,29 +838,27 @@ async def generate_queue(payload: QueuePayload) -> dict[str, Any]:
             raise HTTPException(status_code=400, detail="gmail_not_connected")
 
         access_token = await ensure_valid_access_token(gmail_conn)
-        max_msgs = max(100, min(5000, int(payload.max_messages)))
+        max_msgs: Optional[int] = None
+        if payload.max_messages is not None:
+            max_msgs = max(100, int(payload.max_messages))
 
         async with httpx.AsyncClient(timeout=40) as client:
             base_q = "-in:chats -category:promotions -category:social -category:updates after:2015/01/01"
             current_year = datetime.now(timezone.utc).year
             years = list(range(current_year, 2014, -1))
-            per_year_target = max(60, max_msgs // max(1, len(years)))
             dedup: dict[str, dict[str, Any]] = {}
             for year in years:
-                if len(dedup) >= max_msgs:
-                    break
-                year_limit = min(per_year_target, max_msgs - len(dedup))
                 year_q = (
                     "-in:chats -category:promotions -category:social -category:updates "
                     f"after:{year}/01/01 before:{year + 1}/01/01"
                 )
-                year_ids = await fetch_gmail_message_ids(client, access_token, year_q, year_limit)
+                year_ids = await fetch_gmail_message_ids(client, access_token, year_q, max_msgs)
                 for it in year_ids:
                     mid = str(it.get("id", "")).strip()
                     if mid:
                         dedup[mid] = it
             ids = list(dedup.values())
-            if len(ids) < max_msgs:
+            if max_msgs is not None and len(ids) < max_msgs:
                 refill = await fetch_gmail_message_ids(client, access_token, base_q, max_msgs)
                 for it in refill:
                     mid = str(it.get("id", "")).strip()
@@ -853,120 +871,128 @@ async def generate_queue(payload: QueuePayload) -> dict[str, Any]:
             own_domain = gmail_conn.connected_email.split("@")[-1] if "@" in gmail_conn.connected_email else ""
             orgs: dict[str, dict[str, Any]] = {}
 
+            if max_msgs is not None:
+                ids = ids[:max_msgs]
+            concurrency = 16
+            batch_size = 160
+            sem = asyncio.Semaphore(concurrency)
+
+            async def fetch_one(mid: str) -> Optional[dict[str, Any]]:
+                async with sem:
+                    return await fetch_gmail_message_metadata(client, access_token, mid)
+
+            mids: list[str] = []
             for item in ids:
-                mid = item.get("id")
-                if not mid:
-                    continue
+                mid = str(item.get("id", "")).strip()
+                if mid:
+                    mids.append(mid)
 
-                msg_res = await client.get(
-                    f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{mid}",
-                    params={"format": "metadata", "metadataHeaders": ["From", "To", "Cc", "Subject"]},
-                    headers={"Authorization": f"Bearer {access_token}"},
-                )
-                if msg_res.status_code >= 400:
-                    continue
-
-                msg = msg_res.json()
-                headers = {
-                    str(h.get("name", "")).lower(): h.get("value", "")
-                    for h in (msg.get("payload", {}).get("headers") or [])
-                }
-                subject = str(headers.get("subject", "")).strip()
-                snippet = str(msg.get("snippet", "") or "").strip()
-                thread_id = str(msg.get("threadId", "") or "")
-                from_value = str(headers.get("from", ""))
-                from_emails = extract_emails(from_value)
-                from_email = from_emails[0] if from_emails else ""
-                all_emails = set(from_emails)
-                for h in ("to", "cc"):
-                    for addr in extract_emails(str(headers.get(h, ""))):
-                        all_emails.add(addr)
-
-                ts = datetime.now(timezone.utc)
-                try:
-                    ts = datetime.fromtimestamp(int(msg.get("internalDate", "0")) / 1000, tz=timezone.utc)
-                except Exception:
-                    pass
-                iso_ts = ts.replace(microsecond=0).isoformat()
-
-                domains: set[str] = set()
-                for em in all_emails:
-                    if "@" not in em:
+            for i in range(0, len(mids), batch_size):
+                batch = mids[i : i + batch_size]
+                fetched = await asyncio.gather(*(fetch_one(mid) for mid in batch), return_exceptions=True)
+                for msg in fetched:
+                    if not isinstance(msg, dict):
                         continue
-                    dom = em.split("@", 1)[1].lower()
-                    if is_excluded_domain(dom, own_domain):
-                        continue
-                    domains.add(dom)
-                if not domains:
-                    continue
+                    headers = {
+                        str(h.get("name", "")).lower(): h.get("value", "")
+                        for h in (msg.get("payload", {}).get("headers") or [])
+                    }
+                    subject = str(headers.get("subject", "")).strip()
+                    snippet = str(msg.get("snippet", "") or "").strip()
+                    thread_id = str(msg.get("threadId", "") or "")
+                    from_value = str(headers.get("from", ""))
+                    from_emails = extract_emails(from_value)
+                    from_email = from_emails[0] if from_emails else ""
+                    all_emails = set(from_emails)
+                    for h in ("to", "cc"):
+                        for addr in extract_emails(str(headers.get(h, ""))):
+                            all_emails.add(addr)
 
-                for dom in domains:
-                    org = orgs.get(dom)
-                    if org is None:
-                        org = {
-                            "organization_domain": dom,
-                            "organization_name": company_name_from_domain(dom),
-                            "stakeholders": {},
-                            "threads": {},
-                            "subjects": Counter(),
-                            "snippets": [],
-                            "message_count": 0,
-                            "last_message_at": "",
-                            "primary_contact_email": "",
-                            "primary_contact_name": "",
-                        }
-                        orgs[dom] = org
+                    ts = datetime.now(timezone.utc)
+                    try:
+                        ts = datetime.fromtimestamp(int(msg.get("internalDate", "0")) / 1000, tz=timezone.utc)
+                    except Exception:
+                        pass
+                    iso_ts = ts.replace(microsecond=0).isoformat()
 
-                    org["message_count"] += 1
-                    if subject:
-                        org["subjects"][subject] += 1
-                    if snippet and len(org["snippets"]) < 8:
-                        org["snippets"].append(snippet)
-
-                    if not org["last_message_at"] or iso_ts > org["last_message_at"]:
-                        org["last_message_at"] = iso_ts
-                        if from_email.endswith("@" + dom):
-                            org["primary_contact_email"] = from_email
-                            org["primary_contact_name"] = guess_name_from_header(from_value, from_email)
-
+                    domains: set[str] = set()
                     for em in all_emails:
-                        if "@" not in em or not em.endswith("@" + dom):
+                        if "@" not in em:
                             continue
-                        if is_noise_sender(em):
+                        dom = em.split("@", 1)[1].lower()
+                        if is_excluded_domain(dom, own_domain):
                             continue
-                        if is_generic_localpart(em):
-                            continue
-                        if em not in org["stakeholders"]:
-                            org["stakeholders"][em] = {
-                                "email": em,
-                                "name": "",
-                                "touches": 0,
-                                "last_message_at": iso_ts,
-                            }
-                        org["stakeholders"][em]["touches"] += 1
-                        if iso_ts > org["stakeholders"][em]["last_message_at"]:
-                            org["stakeholders"][em]["last_message_at"] = iso_ts
-                        if from_email == em and from_value:
-                            org["stakeholders"][em]["name"] = guess_name_from_header(from_value, em)
+                        domains.add(dom)
+                    if not domains:
+                        continue
 
-                    if thread_id:
-                        thread = org["threads"].get(thread_id)
-                        if thread is None:
-                            thread = {
-                                "thread_id": thread_id,
-                                "subject": subject,
-                                "last_message_at": iso_ts,
-                                "messages": 0,
-                                "sample": snippet,
+                    for dom in domains:
+                        org = orgs.get(dom)
+                        if org is None:
+                            org = {
+                                "organization_domain": dom,
+                                "organization_name": company_name_from_domain(dom),
+                                "stakeholders": {},
+                                "threads": {},
+                                "subjects": Counter(),
+                                "snippets": [],
+                                "message_count": 0,
+                                "last_message_at": "",
+                                "primary_contact_email": "",
+                                "primary_contact_name": "",
                             }
-                            org["threads"][thread_id] = thread
-                        thread["messages"] += 1
-                        if iso_ts > thread["last_message_at"]:
-                            thread["last_message_at"] = iso_ts
-                            if subject:
-                                thread["subject"] = subject
-                            if snippet:
-                                thread["sample"] = snippet
+                            orgs[dom] = org
+
+                        org["message_count"] += 1
+                        if subject:
+                            org["subjects"][subject] += 1
+                        if snippet and len(org["snippets"]) < 8:
+                            org["snippets"].append(snippet)
+
+                        if not org["last_message_at"] or iso_ts > org["last_message_at"]:
+                            org["last_message_at"] = iso_ts
+                            if from_email.endswith("@" + dom):
+                                org["primary_contact_email"] = from_email
+                                org["primary_contact_name"] = guess_name_from_header(from_value, from_email)
+
+                        for em in all_emails:
+                            if "@" not in em or not em.endswith("@" + dom):
+                                continue
+                            if is_noise_sender(em):
+                                continue
+                            if is_generic_localpart(em):
+                                continue
+                            if em not in org["stakeholders"]:
+                                org["stakeholders"][em] = {
+                                    "email": em,
+                                    "name": "",
+                                    "touches": 0,
+                                    "last_message_at": iso_ts,
+                                }
+                            org["stakeholders"][em]["touches"] += 1
+                            if iso_ts > org["stakeholders"][em]["last_message_at"]:
+                                org["stakeholders"][em]["last_message_at"] = iso_ts
+                            if from_email == em and from_value:
+                                org["stakeholders"][em]["name"] = guess_name_from_header(from_value, em)
+
+                        if thread_id:
+                            thread = org["threads"].get(thread_id)
+                            if thread is None:
+                                thread = {
+                                    "thread_id": thread_id,
+                                    "subject": subject,
+                                    "last_message_at": iso_ts,
+                                    "messages": 0,
+                                    "sample": snippet,
+                                }
+                                org["threads"][thread_id] = thread
+                            thread["messages"] += 1
+                            if iso_ts > thread["last_message_at"]:
+                                thread["last_message_at"] = iso_ts
+                                if subject:
+                                    thread["subject"] = subject
+                                if snippet:
+                                    thread["sample"] = snippet
 
         rows: list[dict[str, Any]] = []
         now_dt = datetime.now(timezone.utc)

@@ -89,10 +89,9 @@
 
     <section class="card">
       <h2>3) Build Approval Queue</h2>
-      <div class="row cols3">
+      <div class="row cols2">
         <div><label>Search</label><input id="search" placeholder="organization / email / topic"/></div>
         <div><label>Status Filter</label><select id="status_filter"><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="all">All</option></select></div>
-        <div><label>Scan size (messages)</label><input id="scan_size" type="number" min="100" max="5000" value="3000"/></div>
       </div>
       <div class="row"><div><label><input id="hide_auto" type="checkbox"/> hide auto-rejected</label></div></div>
       <div class="btns">
@@ -420,8 +419,7 @@
       $('queue_msg').textContent = 'Generating queue from Gmail history...';
       try {
         startLoading('Scanning mailbox range 2015 -> today...');
-        const scanSize = Math.max(100, Math.min(5000, parseInt($('scan_size').value || '3000', 10)));
-        const out = await api('/api/queue/generate', { method:'POST', body: JSON.stringify({ email: s.email, max_messages: scanSize }) });
+        const out = await api('/api/queue/generate', { method:'POST', body: JSON.stringify({ email: s.email }) });
         queueRows = out.rows || [];
         $('queue_card').classList.toggle('hidden', queueRows.length < 1);
         renderRows();
