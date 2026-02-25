@@ -371,6 +371,24 @@ def health() -> dict[str, Any]:
     return {"ok": True, "time": now_iso()}
 
 
+@app.get("/api/debug/oauth")
+def debug_oauth() -> dict[str, Any]:
+    cid = (GOOGLE_CLIENT_ID or "").strip()
+    masked = ""
+    if cid:
+        if len(cid) <= 10:
+            masked = f"{cid[:2]}***{cid[-2:]}"
+        else:
+            masked = f"{cid[:6]}...{cid[-6:]}"
+    return {
+        "ok": True,
+        "google_client_id_masked": masked,
+        "google_client_id_present": bool(cid),
+        "app_base_url": APP_BASE_URL,
+        "expected_callback_uri": f"{APP_BASE_URL}/api/auth/google/callback",
+    }
+
+
 @app.post("/api/users/save")
 def save_user(payload: SaveUserPayload) -> dict[str, Any]:
     email = str(payload.email).strip().lower()
@@ -426,6 +444,7 @@ def user_status(email: str) -> dict[str, Any]:
         "name": (u["name"] if u else ""),
         "gmail_connected": bool(g),
         "gmail_connected_email": (g["connected_email"] if g else ""),
+        "gmail_connected_matches_user": bool(g) and str(g["connected_email"] or "").strip().lower() == user_email,
         "gmail_expires_at": (g["expires_at"] if g else ""),
         "pipedrive_connected": bool(p),
         "pipedrive_domain": (p["domain"] if p else ""),
@@ -627,6 +646,20 @@ def load_gmail_connection(user_email: str) -> Optional[GmailConn]:
         refresh_token=row["refresh_token"] or "",
         expires_at=row["expires_at"] or "",
     )
+
+
+def require_matching_gmail_connection(user_email: str) -> GmailConn:
+    conn = load_gmail_connection(user_email)
+    if not conn:
+        raise HTTPException(status_code=400, detail="gmail_not_connected")
+    expected = user_email.strip().lower()
+    actual = str(conn.connected_email or "").strip().lower()
+    if actual != expected:
+        raise HTTPException(
+            status_code=409,
+            detail=f"gmail_connected_email_mismatch: connected={actual} expected={expected}",
+        )
+    return conn
 
 
 def load_pipedrive_connection(user_email: str) -> Optional[dict[str, str]]:
@@ -1127,8 +1160,14 @@ async def process_active_campaigns_once() -> None:
     for c in campaigns:
         campaign_id = str(c["campaign_id"])
         user_email = str(c["user_email"]).strip().lower()
-        gmail_conn = load_gmail_connection(user_email)
-        if not gmail_conn:
+        try:
+            gmail_conn = require_matching_gmail_connection(user_email)
+        except HTTPException:
+            with db_conn() as conn:
+                conn.execute(
+                    "UPDATE campaigns SET status='error', updated_at=? WHERE campaign_id=?",
+                    (now_s, campaign_id),
+                )
             continue
         try:
             access_token = await ensure_valid_access_token(gmail_conn)
@@ -1445,9 +1484,7 @@ async def generate_queue_result(
     job_key: Optional[str] = None,
 ) -> dict[str, Any]:
     try:
-        gmail_conn = load_gmail_connection(user_email)
-        if not gmail_conn:
-            raise HTTPException(status_code=400, detail="gmail_not_connected")
+        gmail_conn = require_matching_gmail_connection(user_email)
 
         access_token = await ensure_valid_access_token(gmail_conn)
         if job_key:
@@ -1698,6 +1735,7 @@ async def run_generate_queue_job(job_key: str, user_email: str, max_msgs: Option
 @app.post("/api/queue/generate")
 async def generate_queue(payload: QueuePayload) -> dict[str, Any]:
     user_email = str(payload.email).strip().lower()
+    require_matching_gmail_connection(user_email)
     max_msgs: Optional[int] = None
     if payload.max_messages is not None:
         max_msgs = max(100, int(payload.max_messages))
@@ -1784,6 +1822,7 @@ def resume_queue_job(payload: QueueJobControlPayload) -> dict[str, Any]:
 @app.post("/api/drafts/generate")
 def generate_drafts(payload: DraftPayload) -> dict[str, Any]:
     user_email = str(payload.email).strip().lower()
+    require_matching_gmail_connection(user_email)
     with db_conn() as conn:
         user = conn.execute("SELECT name FROM users WHERE email=?", (user_email,)).fetchone()
 
@@ -1937,6 +1976,7 @@ def update_draft_decision(payload: DraftDecisionPayload) -> dict[str, Any]:
 @app.post("/api/campaign/start")
 def start_campaign(payload: CampaignStartPayload) -> dict[str, Any]:
     user_email = str(payload.email).strip().lower()
+    require_matching_gmail_connection(user_email)
     followups_count = int(payload.followups_count)
     if followups_count not in {3, 5}:
         raise HTTPException(status_code=400, detail="followups_count_must_be_3_or_5")

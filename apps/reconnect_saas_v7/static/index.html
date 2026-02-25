@@ -206,6 +206,20 @@
       return body;
     }
 
+    function explainApiError(message, expectedEmail = '') {
+      const msg = String(message || '');
+      if (msg.startsWith('gmail_connected_email_mismatch:')) {
+        const m = msg.match(/connected=([^ ]+)\s+expected=([^ ]+)/i);
+        const connected = (m && m[1]) ? m[1] : '';
+        const expected = (m && m[2]) ? m[2] : (expectedEmail || '');
+        return `Подключен не тот Gmail: ${connected || 'unknown'}. Переподключите аккаунт ${expected || 'этого пользователя'}.`;
+      }
+      if (msg === 'gmail_not_connected') {
+        return 'Gmail не подключен. Сначала подключите Gmail для этого пользователя.';
+      }
+      return msg;
+    }
+
     function fmt(v) {
       if (!v) return '';
       try { return new Date(v).toISOString().replace('T',' ').replace('.000Z',' UTC'); }
@@ -451,14 +465,22 @@
 
       try {
         const st = await api(`/api/users/${encodeURIComponent(s.email)}/status`);
-        $('gmail_status').textContent = st.gmail_connected ? `Connected (${st.gmail_connected_email})` : 'Not connected';
-        $('gmail_status').className = st.gmail_connected ? 'ok' : 'warn';
-        const ready = !!st.gmail_connected;
+        if (st.gmail_connected && !st.gmail_connected_matches_user) {
+          $('gmail_status').textContent = `Connected wrong account (${st.gmail_connected_email})`;
+          $('gmail_status').className = 'warn';
+        } else {
+          $('gmail_status').textContent = st.gmail_connected ? `Connected (${st.gmail_connected_email})` : 'Not connected';
+          $('gmail_status').className = st.gmail_connected ? 'ok' : 'warn';
+        }
+        const ready = !!st.gmail_connected && !!st.gmail_connected_matches_user;
         $('generate').disabled = !ready;
         $('pause_generate').disabled = true;
         $('resume_generate').disabled = true;
         $('refresh_queue').disabled = !ready;
         $('run_campaign').disabled = true;
+        if (st.gmail_connected && !st.gmail_connected_matches_user) {
+          $('gmail_msg').textContent = `Подключен не тот Gmail (${st.gmail_connected_email}). Нажмите Connect Gmail и войдите как ${s.email}.`;
+        }
         renderStats(st.queue || { total:0,pending:0,approved:0,rejected:0 });
       } catch (e) {
         $('queue_msg').textContent = `Status check failed: ${e.message}`;
@@ -611,7 +633,7 @@
         clearCurrentJobId();
         stopLoading('Queue generated');
       } catch (e) {
-        $('queue_msg').textContent = `Failed: ${e.message}`;
+        $('queue_msg').textContent = `Failed: ${explainApiError(e.message, s.email)}`;
         $('pause_generate').disabled = true;
         $('resume_generate').disabled = true;
         $('generate').disabled = false;
@@ -654,7 +676,7 @@
         await api('/api/drafts/generate', { method:'POST', body: JSON.stringify({ email: s.email }) });
         await refreshDrafts();
       } catch (e) {
-        $('queue_msg').textContent = `Draft generation failed: ${e.message}`;
+        $('queue_msg').textContent = `Draft generation failed: ${explainApiError(e.message, s.email)}`;
       }
     });
 
@@ -703,7 +725,7 @@
           : `Campaign started: ${out.campaign_id}, targets: ${out.targets}`;
         await refreshCampaignStatus();
       } catch (e) {
-        $('campaign_msg').textContent = `Campaign start failed: ${e.message}`;
+        $('campaign_msg').textContent = `Campaign start failed: ${explainApiError(e.message, s.email)}`;
       }
     });
 
