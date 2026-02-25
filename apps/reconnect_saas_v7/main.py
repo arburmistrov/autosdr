@@ -180,6 +180,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# In-memory async jobs for long-running mailbox scans.
+QUEUE_JOBS: dict[str, dict[str, Any]] = {}
+QUEUE_JOB_TASKS: dict[str, asyncio.Task[Any]] = {}
+
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
@@ -711,6 +715,17 @@ def parse_row_payload(raw: str) -> dict[str, Any]:
     return out if isinstance(out, dict) else {}
 
 
+def queue_job_key(user_email: str, job_id: str) -> str:
+    return f"{user_email}:{job_id}"
+
+
+def set_queue_job_state(key: str, **updates: Any) -> None:
+    job = QUEUE_JOBS.get(key)
+    if not job:
+        return
+    job.update(updates)
+
+
 async def fetch_gmail_message_ids(
     client: httpx.AsyncClient,
     access_token: str,
@@ -829,18 +844,19 @@ def queue_decision(payload: DecisionPayload) -> dict[str, Any]:
     return {"ok": True, "organization_domain": domain, "status": status}
 
 
-@app.post("/api/queue/generate")
-async def generate_queue(payload: QueuePayload) -> dict[str, Any]:
+async def generate_queue_result(
+    user_email: str,
+    max_msgs: Optional[int] = None,
+    job_key: Optional[str] = None,
+) -> dict[str, Any]:
     try:
-        user_email = str(payload.email).strip().lower()
         gmail_conn = load_gmail_connection(user_email)
         if not gmail_conn:
             raise HTTPException(status_code=400, detail="gmail_not_connected")
 
         access_token = await ensure_valid_access_token(gmail_conn)
-        max_msgs: Optional[int] = None
-        if payload.max_messages is not None:
-            max_msgs = max(100, int(payload.max_messages))
+        if job_key:
+            set_queue_job_state(job_key, status="running", message="Scanning mailbox range 2015 -> today...")
 
         async with httpx.AsyncClient(timeout=40) as client:
             base_q = "-in:chats -category:promotions -category:social -category:updates after:2015/01/01"
@@ -848,6 +864,8 @@ async def generate_queue(payload: QueuePayload) -> dict[str, Any]:
             years = list(range(current_year, 2014, -1))
             dedup: dict[str, dict[str, Any]] = {}
             for year in years:
+                if job_key:
+                    set_queue_job_state(job_key, message=f"Scanning mailbox year {year}...")
                 year_q = (
                     "-in:chats -category:promotions -category:social -category:updates "
                     f"after:{year}/01/01 before:{year + 1}/01/01"
@@ -888,6 +906,9 @@ async def generate_queue(payload: QueuePayload) -> dict[str, Any]:
                     mids.append(mid)
 
             for i in range(0, len(mids), batch_size):
+                if job_key and mids:
+                    pct = int((i / max(1, len(mids))) * 100)
+                    set_queue_job_state(job_key, message=f"Reading Gmail messages... {pct}%")
                 batch = mids[i : i + batch_size]
                 fetched = await asyncio.gather(*(fetch_one(mid) for mid in batch), return_exceptions=True)
                 for msg in fetched:
@@ -1069,7 +1090,7 @@ async def generate_queue(payload: QueuePayload) -> dict[str, Any]:
         )
         save_queue_rows(user_email, rows)
         saved_rows = load_queue_rows(user_email)
-        return {
+        out = {
             "ok": True,
             "summary": {
                 "organizations": len(saved_rows),
@@ -1082,10 +1103,94 @@ async def generate_queue(payload: QueuePayload) -> dict[str, Any]:
             },
             "rows": saved_rows,
         }
+        if job_key:
+            set_queue_job_state(
+                job_key,
+                status="done",
+                message="Queue generated",
+                finished_at=now_iso(),
+                result_summary=out["summary"],
+            )
+        return out
     except HTTPException:
+        if job_key:
+            set_queue_job_state(job_key, status="failed", message="Generation failed", finished_at=now_iso())
         raise
     except Exception as exc:
+        if job_key:
+            set_queue_job_state(
+                job_key,
+                status="failed",
+                message=f"Generation failed: {type(exc).__name__}",
+                error=str(exc),
+                finished_at=now_iso(),
+            )
         raise HTTPException(status_code=500, detail=f"queue_generate_failed: {type(exc).__name__}: {exc}") from exc
+
+
+async def run_generate_queue_job(job_key: str, user_email: str, max_msgs: Optional[int]) -> None:
+    try:
+        await generate_queue_result(user_email=user_email, max_msgs=max_msgs, job_key=job_key)
+    finally:
+        QUEUE_JOB_TASKS.pop(job_key, None)
+
+
+@app.post("/api/queue/generate")
+async def generate_queue(payload: QueuePayload) -> dict[str, Any]:
+    user_email = str(payload.email).strip().lower()
+    max_msgs: Optional[int] = None
+    if payload.max_messages is not None:
+        max_msgs = max(100, int(payload.max_messages))
+
+    active = next(
+        (
+            key
+            for key, job in QUEUE_JOBS.items()
+            if job.get("user_email") == user_email and job.get("status") == "running"
+        ),
+        None,
+    )
+    if active:
+        j = QUEUE_JOBS[active]
+        return {
+            "ok": True,
+            "job_id": j["job_id"],
+            "status": j["status"],
+            "message": j.get("message", "Already running"),
+        }
+
+    job_id = secrets.token_urlsafe(8)
+    key = queue_job_key(user_email, job_id)
+    QUEUE_JOBS[key] = {
+        "job_id": job_id,
+        "user_email": user_email,
+        "status": "running",
+        "message": "Starting...",
+        "created_at": now_iso(),
+        "finished_at": "",
+        "error": "",
+        "result_summary": {},
+    }
+    QUEUE_JOB_TASKS[key] = asyncio.create_task(run_generate_queue_job(key, user_email, max_msgs))
+    return {"ok": True, "job_id": job_id, "status": "running", "message": "Started"}
+
+
+@app.get("/api/queue/generate-status")
+def generate_queue_status(email: str = Query(...), job_id: str = Query(...)) -> dict[str, Any]:
+    user_email = email.strip().lower()
+    key = queue_job_key(user_email, job_id)
+    job = QUEUE_JOBS.get(key)
+    if not job:
+        raise HTTPException(status_code=404, detail="job_not_found")
+    return {
+        "ok": True,
+        "job_id": job["job_id"],
+        "status": job.get("status", "unknown"),
+        "message": job.get("message", ""),
+        "error": job.get("error", ""),
+        "finished_at": job.get("finished_at", ""),
+        "summary": job.get("result_summary", {}),
+    }
 
 
 @app.post("/api/drafts/generate")

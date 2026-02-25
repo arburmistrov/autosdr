@@ -335,6 +335,16 @@
       }
     }
 
+    async function waitForQueueJob(email, jobId) {
+      while (true) {
+        const st = await api(`/api/queue/generate-status?email=${encodeURIComponent(email)}&job_id=${encodeURIComponent(jobId)}`);
+        if (st.message) $('loading_text').textContent = st.message;
+        if (st.status === 'done') return st;
+        if (st.status === 'failed') throw new Error(st.error || st.message || 'generation_failed');
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+    }
+
     $('save_user').addEventListener('click', async () => {
       const name = $('name').value.trim();
       const email = $('email').value.trim().toLowerCase();
@@ -419,17 +429,14 @@
       $('queue_msg').textContent = 'Generating queue from Gmail history...';
       try {
         startLoading('Scanning mailbox range 2015 -> today...');
-        const out = await api('/api/queue/generate', { method:'POST', body: JSON.stringify({ email: s.email }) });
+        const started = await api('/api/queue/generate', { method:'POST', body: JSON.stringify({ email: s.email }) });
+        await waitForQueueJob(s.email, started.job_id);
+        const out = await api(`/api/queue?email=${encodeURIComponent(s.email)}`);
         queueRows = out.rows || [];
         $('queue_card').classList.toggle('hidden', queueRows.length < 1);
         renderRows();
-        renderStats({
-          total: queueRows.length,
-          pending: out.summary.pending || 0,
-          approved: out.summary.approved || 0,
-          rejected: out.summary.rejected || 0,
-        });
-        $('queue_msg').textContent = `Done: ${out.summary.organizations} organizations from ${out.summary.messages_scanned} messages (range: 2015 -> today).`;
+        renderStats(out.summary || { total:0,pending:0,approved:0,rejected:0 });
+        $('queue_msg').textContent = `Done: ${out.summary.total || 0} organizations loaded (range: 2015 -> today).`;
         stopLoading('Queue generated');
       } catch (e) {
         $('queue_msg').textContent = `Failed: ${e.message}`;
