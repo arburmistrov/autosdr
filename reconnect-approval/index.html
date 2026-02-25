@@ -54,7 +54,7 @@
     </div>
 
     <div class="stats">
-      <div class="card"><div class="k">Stakeholders</div><div class="v">347</div></div>
+      <div class="card"><div class="k">Organizations</div><div class="v">347</div></div>
       <div class="card"><div class="k">Pending</div><div class="v">132</div></div>
       <div class="card"><div class="k">Auto-rejected</div><div class="v">215</div></div>
       <div class="card"><div class="k">WeMate/Richmond</div><div class="v">29</div></div>
@@ -76,7 +76,7 @@
 
     <div class="panel">
       <table>
-        <thead><tr><th>#</th><th>Stakeholder</th><th>Top Subject</th><th>Last</th><th>Days</th><th>Threads</th><th>Scores</th><th>Status</th><th>Actions</th></tr></thead>
+        <thead><tr><th>#</th><th>Organization</th><th>Top Thread</th><th>Last</th><th>Days</th><th>Threads</th><th>Scores</th><th>Status</th><th>Actions</th></tr></thead>
         <tbody id="rows"></tbody>
       </table>
     </div>
@@ -116,12 +116,14 @@
         if (!q) return true;
         return (`${c.subject || ''}
 ${c.primary_contact_email || ''}
-${c.primary_contact_domain || ''}`).toLowerCase().includes(q);
+${c.primary_contact_domain || ''}
+${c.organization_domain || ''}
+${c.organization_name || ''}`).toLowerCase().includes(q);
       });
     }
 
     function openStakeholder(c) {
-      document.getElementById('mTitle').textContent = c.primary_contact_email;
+      document.getElementById('mTitle').textContent = c.organization_domain || c.primary_contact_email;
       document.getElementById('mMeta').textContent = `threads: ${c.threads_count || 1}, pending threads: ${c.pending_threads || 0}, score: ${c.followup_score}`;
       const parts = [];
       if (c.thread_link) parts.push(`<p><a target="_blank" rel="noopener" href="${escHtml(c.thread_link)}">Open top thread in Gmail</a></p>`);
@@ -150,7 +152,10 @@ ${c.primary_contact_domain || ''}`).toLowerCase().includes(q);
       tbody.innerHTML = rows.map(c => {
         const id = idOf(c);
         const st = getStatus(c);
-        return `<tr><td>${c.rank || ''}</td><td><div><strong>${escHtml(c.primary_contact_email)}</strong></div><div class="small">${escHtml(c.primary_contact_domain)}</div></td><td><a class="subject-link" data-open-id="${escHtml(id)}">${escHtml(c.subject || '(no subject)')}</a></td><td>${escHtml(c.last_message_at || '')}</td><td>${escHtml(c.days_since_last || '')}</td><td>${escHtml(c.threads_count || 1)} (pending: ${escHtml(c.pending_threads || 0)})</td><td><strong>${escHtml(c.followup_score || 0)}</strong> / biz ${escHtml(c.business_score || 0)}</td><td>${statusBadge(st)}</td><td><button class="good" data-act="approve" data-id="${escHtml(id)}">Approve</button><button class="bad" data-act="reject" data-id="${escHtml(id)}">Not approve</button><button data-act="reset" data-id="${escHtml(id)}">Reset</button></td></tr>`;
+        const mainLine = c.organization_name || c.organization_domain || c.primary_contact_email;
+        const subLine = c.organization_domain || c.primary_contact_domain || '';
+        const owner = c.primary_contact_email ? `primary: ${c.primary_contact_email}` : '';
+        return `<tr><td>${c.rank || ''}</td><td><div><strong>${escHtml(mainLine)}</strong></div><div class="small">${escHtml(subLine)}${owner ? ' | ' + escHtml(owner) : ''}</div></td><td><a class="subject-link" data-open-id="${escHtml(id)}">${escHtml(c.subject || '(no subject)')}</a></td><td>${escHtml(c.last_message_at || '')}</td><td>${escHtml(c.days_since_last || '')}</td><td>${escHtml(c.threads_count || 1)} (pending: ${escHtml(c.pending_threads || 0)})</td><td><strong>${escHtml(c.followup_score || 0)}</strong> / biz ${escHtml(c.business_score || 0)}</td><td>${statusBadge(st)}</td><td><button class="good" data-act="approve" data-id="${escHtml(id)}">Approve</button><button class="bad" data-act="reject" data-id="${escHtml(id)}">Not approve</button><button data-act="reset" data-id="${escHtml(id)}">Reset</button></td></tr>`;
       }).join('');
 
       tbody.querySelectorAll('[data-act]').forEach(btn => btn.addEventListener('click', () => {
@@ -173,10 +178,10 @@ ${c.primary_contact_domain || ''}`).toLowerCase().includes(q);
 
     document.getElementById('exportApprovedJson').addEventListener('click', () => download('gmail_reconnect_approved.json', JSON.stringify(approved(), null, 2), 'application/json'));
     document.getElementById('exportApprovedCsv').addEventListener('click', () => {
-      const header = ['candidate_id','primary_contact_email','primary_contact_domain','threads_count','pending_threads','subject','last_message_at','days_since_last','followup_score','thread_link'];
+      const header = ['candidate_id','organization_name','organization_domain','primary_contact_email','primary_contact_domain','threads_count','pending_threads','subject','last_message_at','days_since_last','followup_score','thread_link'];
       const lines = [header.join(',')];
       approved().forEach(r => {
-        const vals = [idOf(r), r.primary_contact_email, r.primary_contact_domain, r.threads_count || 1, r.pending_threads || 0, r.subject, r.last_message_at, r.days_since_last, r.followup_score, r.thread_link].map(v => '"' + String(v ?? '').replace(/"/g, '""') + '"');
+        const vals = [idOf(r), r.organization_name || '', r.organization_domain || '', r.primary_contact_email, r.primary_contact_domain, r.threads_count || 1, r.pending_threads || 0, r.subject, r.last_message_at, r.days_since_last, r.followup_score, r.thread_link].map(v => '"' + String(v ?? '').replace(/"/g, '""') + '"');
         lines.push(vals.join(','));
       });
       download('gmail_reconnect_approved.csv', lines.join('\n'), 'text/csv;charset=utf-8');
