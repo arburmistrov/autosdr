@@ -110,19 +110,34 @@
         <h2>2) Connect Integrations</h2>
         <p class="muted" style="margin-top:0">
           What to prepare:
-          Gmail uses OAuth (no manual token paste).
+          Gmail uses OAuth (requires Google OAuth Client ID).
           Pipedrive requires <code>company domain</code> and <code>API token</code>.
         </p>
+        <div class="row">
+          <div>
+            <label>Google OAuth Client ID</label>
+            <input id="google_client_id" placeholder="1234567890-abc123.apps.googleusercontent.com" />
+          </div>
+        </div>
         <div>
           <span class="pill">Gmail OAuth</span>
           <span id="gmail_state" class="warn">Not connected</span>
         </div>
         <div style="margin-top:8px" class="btns">
           <button id="connect_gmail" class="primary">Connect my Gmail</button>
+          <button id="disconnect_gmail">Disconnect Gmail</button>
         </div>
         <div style="margin-top:8px" class="muted">
-          Gmail: click <strong>Connect my Gmail</strong> and approve Google consent for this mailbox.
+          Gmail setup:
+          <br/>1) Google Cloud Console -> APIs & Services -> Credentials.
+          <br/>2) Create OAuth Client ID (Web application).
+          <br/>3) Authorized redirect URI: this page URL (same path).
+          <br/>4) Paste Client ID above, then click <strong>Connect my Gmail</strong>.
         </div>
+        <div style="margin-top:8px" class="btns">
+          <button id="toggle_debug">Show OAuth debug</button>
+        </div>
+        <pre id="oauth_debug" class="hidden" style="font-size:12px; background:#f8fbf9; border:1px solid var(--line); border-radius:8px; padding:9px; overflow:auto;"></pre>
         <div class="divider"></div>
         <div class="row cols2">
           <div>
@@ -195,6 +210,7 @@
       $('user_name').value = s.user_name || '';
       $('user_email').value = s.user_email || '';
       $('pd_domain').value = s.pd_domain || '';
+      $('google_client_id').value = s.google_client_id || '';
 
       const gmailConnected = !!s.gmail_connected;
       const pdConnected = !!(s.pd_domain && s.pd_token_masked);
@@ -238,9 +254,33 @@
         $('integration_msg').textContent = 'Save user email first.';
         return;
       }
-      s.gmail_connected = true;
+      const clientId = ($('google_client_id').value || '').trim();
+      if (!clientId) {
+        $('integration_msg').textContent = 'Paste Google OAuth Client ID first.';
+        return;
+      }
+      s.google_client_id = clientId;
       saveState(s);
-      $('integration_msg').textContent = 'Gmail marked connected (OAuth backend endpoint to be wired next).';
+      const redirectUri = window.location.origin + window.location.pathname;
+      const scope = encodeURIComponent('https://www.googleapis.com/auth/gmail.readonly email profile');
+      const authUrl =
+        'https://accounts.google.com/o/oauth2/v2/auth' +
+        `?client_id=${encodeURIComponent(clientId)}` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+        '&response_type=token' +
+        `&scope=${scope}` +
+        `&login_hint=${encodeURIComponent(s.user_email)}` +
+        '&prompt=consent';
+      window.location.href = authUrl;
+    });
+
+    $('disconnect_gmail').addEventListener('click', () => {
+      const s = loadState();
+      delete s.gmail_connected;
+      delete s.gmail_access_token;
+      delete s.gmail_token_expires_at;
+      saveState(s);
+      $('integration_msg').textContent = 'Gmail disconnected.';
       refresh();
     });
 
@@ -280,6 +320,48 @@
       $('approval_card').classList.remove('hidden');
       $('pipeline_msg').textContent = `Queue generated for ${s.user_email}.`;
     });
+
+    $('toggle_debug').addEventListener('click', () => {
+      const box = $('oauth_debug');
+      box.classList.toggle('hidden');
+      $('toggle_debug').textContent = box.classList.contains('hidden') ? 'Show OAuth debug' : 'Hide OAuth debug';
+    });
+
+    function writeOAuthDebug(obj) {
+      const box = $('oauth_debug');
+      box.textContent = JSON.stringify(obj, null, 2);
+    }
+
+    (function readGoogleOAuthCallback() {
+      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const query = new URLSearchParams(window.location.search || '');
+      const accessToken = hash.get('access_token');
+      const oauthError = hash.get('error') || query.get('error');
+      const oauthErrorDescription = hash.get('error_description') || query.get('error_description');
+      writeOAuthDebug({
+        location: window.location.href,
+        has_access_token: !!accessToken,
+        hash_error: hash.get('error') || '',
+        hash_error_description: hash.get('error_description') || '',
+        query_error: query.get('error') || '',
+        query_error_description: query.get('error_description') || '',
+      });
+      if (oauthError) {
+        $('integration_msg').textContent = `Gmail OAuth error: ${oauthError}${oauthErrorDescription ? ' - ' + oauthErrorDescription : ''}`;
+        return;
+      }
+      const expiresIn = parseInt(hash.get('expires_in') || '0', 10);
+      if (!accessToken) return;
+      const s = loadState();
+      s.gmail_connected = true;
+      s.gmail_access_token = accessToken;
+      if (expiresIn > 0) {
+        s.gmail_token_expires_at = Date.now() + expiresIn * 1000;
+      }
+      saveState(s);
+      history.replaceState(null, '', window.location.pathname);
+      $('integration_msg').textContent = 'Gmail connected via OAuth.';
+    })();
 
     refresh();
   </script>
