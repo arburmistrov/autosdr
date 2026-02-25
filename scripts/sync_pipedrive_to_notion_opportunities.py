@@ -307,59 +307,50 @@ def summarize_deal(
     notes: List[dict],
     activities: List[dict],
 ) -> str:
-    client = company_name or contact_name or "Unknown client"
-    owner = owner_name or "Unassigned"
-    stage = stage_name or "Unknown stage"
-
-    product = ", ".join(product_guess[:2]) if product_guess else "Custom dev"
-
-    # Ask: best short hint from latest note/activity, fallback to title.
-    ask = ""
+    # Executive summary should be context-only and based on yellow notes.
+    note_texts = []
     for n in sorted(notes, key=lambda x: str(x.get("update_time") or x.get("add_time") or ""), reverse=True):
         txt = clean_text(n.get("content") or "")
         if txt:
-            ask = truncate_text(txt, 90)
+            note_texts.append(txt)
+    if not note_texts:
+        return ""
+
+    joined = " ".join(note_texts).lower()
+
+    # Origin
+    origin = ""
+    m = re.search(r"lead from ([a-z0-9& .,'/-]{2,60})", joined, flags=re.IGNORECASE)
+    if m:
+        origin = f"{m.group(1).strip().rstrip('.') } lead"
+    else:
+        client = company_name or contact_name
+        if client:
+            origin = f"{client} lead"
+
+    # Need from the first substantive note
+    need = ""
+    for txt in reversed(note_texts):
+        low = txt.lower()
+        if any(k in low for k in ["interested", "need", "wants", "looking for", "request"]):
+            need = truncate_text(txt, 120)
             break
-    if not ask and activities:
-        latest = sorted(
-            activities,
-            key=lambda a: str(a.get("update_time") or a.get("add_time") or ""),
-            reverse=True,
-        )[0]
-        ask = truncate_text(clean_text(latest.get("subject") or latest.get("note") or latest.get("type") or ""), 90)
-    if not ask:
-        ask = truncate_text(title, 90)
+    if not need:
+        need = truncate_text(note_texts[-1], 120)
 
-    # Next step: first open activity with nearest date.
-    open_acts = [a for a in activities if not truthy(a.get("done"))]
-    next_step = "Follow-up with client"
-    if open_acts:
-        open_acts_sorted = sorted(open_acts, key=lambda a: str(a.get("due_date") or a.get("add_time") or "9999-12-31"))
-        nxt = open_acts_sorted[0]
-        subj = clean_text(nxt.get("subject") or nxt.get("type") or "Follow-up")
-        due = str(nxt.get("due_date") or "").strip()
-        next_step = truncate_text(f"{subj} {f'(due {due})' if due else ''}".strip(), 70)
+    # Current status from latest note
+    latest = note_texts[0].lower()
+    if any(k in latest for k in ["sent him an email", "sent email", "proposed slots", "waiting", "awaiting"]):
+        status = "waiting for feedback"
+    elif any(k in latest for k in ["meeting booked", "schedule", "call", "q&a"]):
+        status = "next call in progress"
+    elif any(k in latest for k in ["proposal", "estimate", "deck", "presentation"]):
+        status = "proposal shared, waiting for feedback"
+    else:
+        status = truncate_text(note_texts[0], 80)
 
-    risk_parts = [sla_color, docs_status]
-    if deal_value not in (None, "", 0, "0"):
-        try:
-            amt = int(float(str(deal_value)))
-            cur = (currency or "").upper().strip()
-            risk_parts.append(f"{amt:,} {cur}".strip())
-        except Exception:
-            pass
-    if expected_close:
-        risk_parts.append(f"close {expected_close.isoformat()}")
-    risk = " | ".join([p for p in risk_parts if p])
-
-    return (
-        f"Client: {client} ({owner})\n"
-        f"Product: {product}\n"
-        f"Ask: {ask}\n"
-        f"Stage: {pipeline_name} -> {stage} ({days_in_stage}d)\n"
-        f"Next: {next_step}\n"
-        f"Risk: {risk}"
-    )
+    parts = [p for p in [origin, need, status] if p]
+    return "; ".join(parts)
 
 
 def resolve_doc_links_from_notes(doc_hints: dict, notes: List[dict]) -> Dict[str, str]:
