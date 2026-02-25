@@ -108,12 +108,20 @@
 
       <section class="card">
         <h2>2) Connect Integrations</h2>
+        <p class="muted" style="margin-top:0">
+          What to prepare:
+          Gmail uses OAuth (no manual token paste).
+          Pipedrive requires <code>company domain</code> and <code>API token</code>.
+        </p>
         <div>
           <span class="pill">Gmail OAuth</span>
           <span id="gmail_state" class="warn">Not connected</span>
         </div>
         <div style="margin-top:8px" class="btns">
           <button id="connect_gmail" class="primary">Connect my Gmail</button>
+        </div>
+        <div style="margin-top:8px" class="muted">
+          Gmail: click <strong>Connect my Gmail</strong> and approve Google consent for this mailbox.
         </div>
         <div class="divider"></div>
         <div class="row cols2">
@@ -129,6 +137,12 @@
         <div class="btns">
           <button id="save_pipedrive" class="primary">Save Pipedrive</button>
           <button id="clear_pipedrive">Disconnect Pipedrive</button>
+        </div>
+        <div style="margin-top:8px" class="muted">
+          Where to find Pipedrive values:
+          <br/>1) Open Pipedrive URL like <code>https://acme.pipedrive.com</code> -> domain is <code>acme</code>.
+          <br/>2) In Pipedrive go to <strong>Personal preferences -> API</strong>.
+          <br/>3) Copy <strong>API Token</strong> and paste it above.
         </div>
         <p id="integration_msg" class="muted"></p>
       </section>
