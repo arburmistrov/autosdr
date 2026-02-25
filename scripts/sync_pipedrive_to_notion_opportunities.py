@@ -17,6 +17,49 @@ DEFAULT_READINESS = ROOT / "config" / "readiness_rules.json"
 DEFAULT_REPORT = ROOT / "data" / "output" / "notion_sync_report.json"
 NOTION_VERSION = "2022-06-28"
 URL_RE = re.compile(r"https?://[^\s<>)\"']+", re.IGNORECASE)
+SIZE_RE = re.compile(r"\[(S|M|L|M/L|L/XL)\]", re.IGNORECASE)
+
+
+def infer_size_from_title(title: str) -> str:
+    t = (title or "").upper()
+    m = SIZE_RE.search(t)
+    if not m:
+        return ""
+    raw = m.group(1).upper()
+    if raw.startswith("L"):
+        return "L"
+    if raw.startswith("M"):
+        return "M"
+    return "S"
+
+
+def infer_domains_from_text(text: str) -> List[str]:
+    t = (text or "").lower()
+    out = []
+    if any(x in t for x in ["web", "website", "portal", "frontend", "ui"]):
+        out.append("Web")
+    if any(x in t for x in ["mobile", "ios", "android", "app"]):
+        out.append("Mob")
+    if any(x in t for x in ["blockchain", "web3", "smart contract", "defi"]):
+        out.append("Blockchain")
+    # preserve order and uniqueness
+    seen = set()
+    uniq = []
+    for v in out:
+        if v in seen:
+            continue
+        seen.add(v)
+        uniq.append(v)
+    return uniq
+
+
+def infer_confidence(stage_name: str) -> str:
+    s = (stage_name or "").strip().lower()
+    if s in {"won", "ready to buy"}:
+        return "High"
+    if any(x in s for x in ["contract", "result", "negotiation", "presentation"]):
+        return "Medium"
+    return "Low"
 
 
 def load_json(path: Path) -> dict:
@@ -647,11 +690,26 @@ def run_sync(args):
             deal_value = deal.get("value")
             currency = str(deal.get("currency") or "").strip().upper()
             pipedrive_url = f"https://{pd_domain}.pipedrive.com/deal/{did}"
+            inferred_size = infer_size_from_title(title)
+            inferred_domains = infer_domains_from_text(
+                " ".join(
+                    [
+                        title,
+                        str(deal.get("label") or ""),
+                        str(company_name),
+                        str(contact_name),
+                    ]
+                )
+            )
+            inferred_confidence = infer_confidence(final_stage)
 
             values = {
                 "title": title,
                 "crm_deal_id": did,
                 "stage": final_stage,
+                "size": inferred_size,
+                "domain": inferred_domains,
+                "confidence": inferred_confidence,
                 "pipeline": pipeline_name,
                 "company": company_name,
                 "contact": contact_name,
