@@ -62,6 +62,45 @@ def infer_confidence(stage_name: str) -> str:
     return "Low"
 
 
+def compact_owner(owner_name: str) -> str:
+    name = (owner_name or "").strip()
+    if not name:
+        return "Unassigned"
+    parts = [p for p in name.split() if p]
+    if len(parts) == 1:
+        return parts[0]
+    return f"{parts[0]} {parts[-1]}"
+
+
+def build_card_title(
+    base_title: str,
+    owner_name: str,
+    expected_close: Optional[dt.date],
+    size: str,
+    domains: List[str],
+    deal_value,
+    currency: str,
+) -> str:
+    title = (base_title or "").strip() or "Untitled deal"
+    right = []
+    if size:
+        right.append(size)
+    if domains:
+        right.append("/".join(domains))
+    owner = compact_owner(owner_name)
+    right.append(owner)
+    if expected_close:
+        right.append(expected_close.isoformat())
+    if deal_value not in (None, "", 0, "0"):
+        try:
+            amt = int(float(str(deal_value)))
+            cur = (currency or "").upper().strip()
+            right.append(f"{amt:,} {cur}".strip())
+        except Exception:
+            pass
+    return f"{title} | {' · '.join(right)}"
+
+
 def load_json(path: Path) -> dict:
     with path.open("r", encoding="utf-8") as f:
         return json.load(f)
@@ -702,9 +741,18 @@ def run_sync(args):
                 )
             )
             inferred_confidence = infer_confidence(final_stage)
+            card_title = build_card_title(
+                title,
+                owner_name,
+                expected_close,
+                inferred_size,
+                inferred_domains,
+                deal_value,
+                currency,
+            )
 
             values = {
-                "title": title,
+                "title": card_title,
                 "crm_deal_id": did,
                 "stage": final_stage,
                 "size": inferred_size,
