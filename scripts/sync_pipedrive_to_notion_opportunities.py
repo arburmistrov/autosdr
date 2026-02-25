@@ -612,6 +612,8 @@ def run_sync(args):
             title = str(deal.get("title") or f"Deal {did}")
             stage_id = int(deal.get("stage_id") or 0)
             raw_stage = stage_map.get(stage_id, "")
+            pipeline_id = int(deal.get("pipeline_id") or 0)
+            pipeline_name = pipeline_map.get(pipeline_id, "")
             if use_raw_stage_names and raw_stage:
                 target_stage = raw_stage
             else:
@@ -632,11 +634,32 @@ def run_sync(args):
             final_stage, block_reason = evaluate_gate(target_stage, checks, readiness, stage_order)
             gate_status = "Blocked" if block_reason else "Pass"
             sync_note = block_reason or ""
+            company_name = (
+                str(nested_get(deal, "org_id.name") or deal.get("org_name") or "").strip()
+            )
+            contact_name = (
+                str(nested_get(deal, "person_id.name") or deal.get("person_name") or "").strip()
+            )
+            owner_name = (
+                str(nested_get(deal, "owner_id.name") or deal.get("user_name") or "").strip()
+            )
+            expected_close = parse_date(str(deal.get("expected_close_date") or "")) or None
+            deal_value = deal.get("value")
+            currency = str(deal.get("currency") or "").strip().upper()
+            pipedrive_url = f"https://{pd_domain}.pipedrive.com/deal/{did}"
 
             values = {
                 "title": title,
                 "crm_deal_id": did,
                 "stage": final_stage,
+                "pipeline": pipeline_name,
+                "company": company_name,
+                "contact": contact_name,
+                "owner": owner_name,
+                "deal_value": deal_value,
+                "currency": currency,
+                "expected_close_date": expected_close,
+                "pipedrive_url": pipedrive_url,
                 "days_in_stage": days_in_stage,
                 "sla_color": sla_color,
                 "readiness_percent": readiness_percent,
