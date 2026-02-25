@@ -5,38 +5,56 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Reconnect SaaS v7</title>
   <style>
-    :root { --bg:#eef4ef; --card:#fff; --line:#d2ddd4; --text:#16231b; --muted:#5f7065; --brand:#0d7a6b; }
+    :root { --bg:#eef4ef; --card:#fff; --line:#d2ddd4; --text:#16231b; --muted:#5f7065; --brand:#0d7a6b; --bad:#cb4b4b; --pending:#55738e; }
     * { box-sizing: border-box; }
     body { margin:0; font-family:"Avenir Next","Segoe UI",sans-serif; color:var(--text); background:radial-gradient(circle at 0% 0%, #d7e9dc 0%, transparent 35%),radial-gradient(circle at 100% 100%, #f4e4d7 0%, transparent 35%),var(--bg); }
-    .wrap { max-width:1080px; margin:26px auto; padding:0 16px 30px; }
+    .wrap { max-width:1320px; margin:20px auto; padding:0 16px 30px; }
     h1 { margin:0 0 8px; font-size:34px; }
     .sub { color:var(--muted); margin-bottom:12px; }
     .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px; }
     .row { display:grid; gap:10px; margin-bottom:10px; grid-template-columns:1fr; }
     .cols2 { grid-template-columns:1fr 1fr; }
-    @media (max-width:760px){ .cols2{grid-template-columns:1fr;} }
+    .cols3 { grid-template-columns:2fr 1fr 1fr; }
+    @media (max-width:900px){ .cols2,.cols3{grid-template-columns:1fr;} }
     label { display:block; font-size:13px; color:var(--muted); margin-bottom:6px; }
-    input { width:100%; border:1px solid var(--line); border-radius:10px; padding:10px 11px; font:inherit; }
+    input, select { width:100%; border:1px solid var(--line); border-radius:10px; padding:10px 11px; font:inherit; background:#fff; }
     .btns { display:flex; gap:8px; flex-wrap:wrap; }
     button { border:1px solid var(--line); border-radius:10px; padding:10px 12px; font:inherit; background:#fff; cursor:pointer; }
     button.primary { background:var(--brand); border-color:var(--brand); color:#fff; }
+    button.good { background:var(--brand); border-color:var(--brand); color:#fff; }
+    button.bad { background:var(--bad); border-color:var(--bad); color:#fff; }
     button:disabled { opacity:.6; cursor:not-allowed; }
     .muted { color:var(--muted); }
     .ok { color:#0b7a63; font-weight:600; }
     .warn { color:#8c5f18; font-weight:600; }
     .hidden { display:none; }
-    table { width:100%; border-collapse: collapse; }
+    .pill { display:inline-block; padding:3px 8px; border-radius:999px; color:#fff; font-size:12px; }
+    .pill.pending { background:var(--pending); }
+    .pill.approved { background:var(--brand); }
+    .pill.rejected { background:var(--bad); }
+    .stats { display:grid; grid-template-columns:repeat(4,minmax(160px,1fr)); gap:8px; margin-top:10px; }
+    .stat { border:1px solid var(--line); border-radius:10px; padding:10px; }
+    .stat .k { font-size:12px; color:var(--muted); text-transform:uppercase; }
+    .stat .v { font-size:26px; font-weight:700; }
+    table { width:100%; border-collapse: collapse; min-width:1100px; }
     th,td { border-bottom:1px solid var(--line); padding:8px; text-align:left; font-size:13px; vertical-align:top; }
     th { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
+    .table-wrap { overflow:auto; }
+    .link-btn { border:none; background:none; color:#165b8f; padding:0; cursor:pointer; text-decoration:underline; font:inherit; text-align:left; }
+    .modal { position:fixed; inset:0; background:rgba(16,24,20,.55); display:none; align-items:center; justify-content:center; padding:14px; }
+    .modal.open { display:flex; }
+    .modal-card { width:min(980px,95vw); max-height:90vh; overflow:auto; background:#fff; border-radius:12px; border:1px solid var(--line); padding:12px; }
+    .block { border:1px solid var(--line); border-radius:8px; padding:8px; margin-top:8px; }
+    pre { white-space:pre-wrap; word-break:break-word; margin:0; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>Reconnect Campaign SaaS v7</h1>
-    <div class="sub">No Google Console for end users. Admin sets OAuth once on server.</div>
+    <h1>Reconnect Campaign SaaS</h1>
+    <div class="sub">Organization-level queue: auto-clean spam/system traffic, approve real companies, then generate follow-up drafts.</div>
 
     <section class="card">
-      <h2>1) Create User</h2>
+      <h2>1) User</h2>
       <div class="row cols2">
         <div><label>Your Name</label><input id="name" placeholder="Maksym Golovan"/></div>
         <div><label>Your Email</label><input id="email" placeholder="mgolovan@s-pro.io" type="email"/></div>
@@ -49,19 +67,16 @@
     </section>
 
     <section class="card">
-      <h2>2) Connect Gmail</h2>
-      <div class="btns">
+      <h2>2) Connect Gmail + Pipedrive</h2>
+      <div class="btns" style="margin-bottom:8px;">
         <button class="primary" id="connect_gmail">Connect my Gmail</button>
         <button id="disconnect_gmail">Disconnect Gmail</button>
       </div>
       <p id="gmail_msg" class="muted"></p>
-      <p>Gmail status: <span id="gmail_status" class="warn">Not connected</span></p>
-    </section>
+      <p>Gmail: <span id="gmail_status" class="warn">Not connected</span></p>
 
-    <section class="card">
-      <h2>3) Connect Pipedrive</h2>
-      <div class="row cols2">
-        <div><label>Pipedrive Company Domain</label><input id="pd_domain" placeholder="acme"/></div>
+      <div class="row cols2" style="margin-top:12px;">
+        <div><label>Pipedrive Company Domain</label><input id="pd_domain" placeholder="s-pro1"/></div>
         <div><label>Pipedrive API Token</label><input id="pd_token" type="password" placeholder="pdt_xxx"/></div>
       </div>
       <div class="btns">
@@ -72,25 +87,61 @@
     </section>
 
     <section class="card">
-      <h2>4) Generate Queue</h2>
+      <h2>3) Build Approval Queue</h2>
+      <div class="row cols3">
+        <div><label>Search</label><input id="search" placeholder="organization / email / topic"/></div>
+        <div><label>Status Filter</label><select id="status_filter"><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="all">All</option></select></div>
+        <div><label>&nbsp;</label><label><input id="hide_auto" type="checkbox"/> hide auto-rejected</label></div>
+      </div>
       <div class="btns">
         <button class="primary" id="generate" disabled>Generate from my Gmail history</button>
+        <button id="refresh_queue" disabled>Refresh queue</button>
+        <button id="generate_drafts" disabled>Generate follow-up from approved</button>
       </div>
       <p id="queue_msg" class="muted"></p>
+
+      <div class="stats" id="stats" style="display:none;">
+        <div class="stat"><div class="k">Organizations</div><div class="v" id="st_total">0</div></div>
+        <div class="stat"><div class="k">Pending</div><div class="v" id="st_pending">0</div></div>
+        <div class="stat"><div class="k">Approved</div><div class="v" id="st_approved">0</div></div>
+        <div class="stat"><div class="k">Rejected</div><div class="v" id="st_rejected">0</div></div>
+      </div>
     </section>
 
     <section class="card hidden" id="queue_card">
       <h2>Approval Queue (Organization-Level)</h2>
-      <table>
-        <thead><tr><th>Organization</th><th>Primary Contact</th><th>Threads</th><th>Last message</th><th>Status</th></tr></thead>
-        <tbody id="rows"></tbody>
-      </table>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Organization</th><th>Summary</th><th>Threads</th><th>Last</th><th>Score</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
     </section>
+
+    <section class="card hidden" id="drafts_card">
+      <h2>Generated Follow-up Drafts</h2>
+      <p class="muted" id="drafts_meta"></p>
+      <div id="drafts_list"></div>
+    </section>
+  </div>
+
+  <div id="modal" class="modal">
+    <div class="modal-card">
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">
+        <div>
+          <h3 id="m_title" style="margin:0"></h3>
+          <div id="m_meta" class="muted"></div>
+        </div>
+        <button id="m_close">Close</button>
+      </div>
+      <div id="m_body"></div>
+    </div>
   </div>
 
   <script>
     const STORE = 'reconnect_saas_v7_ui';
     const $ = (id) => document.getElementById(id);
+    let queueRows = [];
 
     function load() { try { return JSON.parse(localStorage.getItem(STORE) || '{}'); } catch { return {}; } }
     function save(v) { localStorage.setItem(STORE, JSON.stringify(v)); }
@@ -108,25 +159,141 @@
       catch { return v; }
     }
 
+    function esc(v) {
+      return String(v || '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+    }
+
+    function statusPill(s) {
+      const v = (s || 'pending').toLowerCase();
+      return `<span class="pill ${v}">${esc(v)}</span>`;
+    }
+
+    function filteredRows() {
+      const q = $('search').value.trim().toLowerCase();
+      const sf = $('status_filter').value;
+      const hideAuto = $('hide_auto').checked;
+      return queueRows.filter((r) => {
+        if (sf !== 'all' && (r.status || 'pending') !== sf) return false;
+        if (hideAuto && r.auto_status !== 'pending' && (r.status || 'pending') !== 'approved') return false;
+        if (!q) return true;
+        return `${r.organization_name} ${r.organization_domain} ${r.primary_contact_email} ${(r.topics || []).join(' ')} ${r.summary || ''}`.toLowerCase().includes(q);
+      });
+    }
+
+    function renderStats(summary) {
+      $('stats').style.display = 'grid';
+      $('st_total').textContent = String(summary.total || 0);
+      $('st_pending').textContent = String(summary.pending || 0);
+      $('st_approved').textContent = String(summary.approved || 0);
+      $('st_rejected').textContent = String(summary.rejected || 0);
+      $('generate_drafts').disabled = (summary.approved || 0) < 1;
+    }
+
+    function openModal(row) {
+      $('m_title').textContent = `${row.organization_name} (${row.organization_domain})`;
+      $('m_meta').textContent = `Primary: ${row.primary_contact_email} | Threads: ${row.threads_count} | Score: ${row.followup_score}`;
+      const b = [];
+      b.push(`<div class="block"><strong>Summary</strong><div>${esc(row.summary || '')}</div></div>`);
+      b.push(`<div class="block"><strong>Topics</strong><div>${esc((row.topics || []).join(', ') || 'n/a')}</div></div>`);
+      b.push('<div class="block"><strong>Stakeholders</strong>');
+      (row.stakeholders || []).forEach((s) => {
+        b.push(`<div>${esc(s.name || '-')}: ${esc(s.email)} (touches: ${esc(s.touches)})</div>`);
+      });
+      b.push('</div>');
+      b.push('<div class="block"><strong>Threads</strong>');
+      (row.threads || []).slice(0, 10).forEach((t) => {
+        b.push(`<div><strong>${esc(t.subject || '(no subject)')}</strong><div class="muted">${esc(fmt(t.last_message_at))} | messages: ${esc(t.messages || 0)}</div><div>${esc(t.sample || '')}</div></div><hr/>`);
+      });
+      b.push('</div>');
+      $('m_body').innerHTML = b.join('');
+      $('modal').classList.add('open');
+    }
+
+    function renderRows() {
+      const rows = filteredRows();
+      $('rows').innerHTML = rows.map((r) => {
+        const auto = r.auto_status === 'pending' ? '' : `<div class="muted">auto: ${esc(r.auto_status)}</div>`;
+        return `<tr>
+          <td>${esc(r.rank || '')}</td>
+          <td><div><strong>${esc(r.organization_name)}</strong></div><div class="muted">${esc(r.organization_domain)} | ${esc(r.primary_contact_email)}</div></td>
+          <td><button class="link-btn" data-open="${esc(r.organization_domain)}">${esc(r.summary || '')}</button>${auto}</td>
+          <td>${esc(r.threads_count)}<div class="muted">stakeholders: ${esc((r.stakeholders || []).length)}</div></td>
+          <td>${esc(fmt(r.last_message_at))}<div class="muted">${esc(r.days_since_last)} days</div></td>
+          <td><strong>${esc(r.followup_score)}</strong><div class="muted">biz ${esc(r.business_score)}</div></td>
+          <td>${statusPill(r.status)}</td>
+          <td>
+            <div class="btns">
+              <button class="good" data-act="approve" data-domain="${esc(r.organization_domain)}">Approve</button>
+              <button class="bad" data-act="reject" data-domain="${esc(r.organization_domain)}">Not approve</button>
+              <button data-act="reset" data-domain="${esc(r.organization_domain)}">Reset</button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+
+      $('rows').querySelectorAll('[data-open]').forEach((el) => {
+        el.addEventListener('click', () => {
+          const d = el.getAttribute('data-open');
+          const row = queueRows.find((x) => x.organization_domain === d);
+          if (row) openModal(row);
+        });
+      });
+
+      $('rows').querySelectorAll('[data-act]').forEach((el) => {
+        el.addEventListener('click', async () => {
+          const domain = el.getAttribute('data-domain');
+          const a = el.getAttribute('data-act');
+          const s = load();
+          const status = a === 'approve' ? 'approved' : (a === 'reject' ? 'rejected' : 'pending');
+          try {
+            await api('/api/queue/decision', { method: 'POST', body: JSON.stringify({ email: s.email, organization_domain: domain, status }) });
+            await refreshQueue();
+          } catch (e) {
+            $('queue_msg').textContent = `Decision failed: ${e.message}`;
+          }
+        });
+      });
+    }
+
     async function refreshStatus() {
       const s = load();
       $('name').value = s.name || '';
       $('email').value = s.email || '';
       $('pd_domain').value = s.pd_domain || '';
+
       if (!s.email) {
         $('gmail_status').textContent = 'Not connected';
         $('gmail_status').className = 'warn';
         $('generate').disabled = true;
+        $('refresh_queue').disabled = true;
+        $('generate_drafts').disabled = true;
         return;
       }
+
       try {
         const st = await api(`/api/users/${encodeURIComponent(s.email)}/status`);
         $('gmail_status').textContent = st.gmail_connected ? `Connected (${st.gmail_connected_email})` : 'Not connected';
         $('gmail_status').className = st.gmail_connected ? 'ok' : 'warn';
-        const ready = !!(st.gmail_connected && st.pipedrive_connected);
+        const ready = !!st.gmail_connected;
         $('generate').disabled = !ready;
+        $('refresh_queue').disabled = !ready;
+        renderStats(st.queue || { total:0,pending:0,approved:0,rejected:0 });
       } catch (e) {
         $('queue_msg').textContent = `Status check failed: ${e.message}`;
+      }
+    }
+
+    async function refreshQueue() {
+      const s = load();
+      if (!s.email) return;
+      try {
+        const out = await api(`/api/queue?email=${encodeURIComponent(s.email)}`);
+        queueRows = out.rows || [];
+        $('queue_card').classList.toggle('hidden', queueRows.length < 1);
+        renderStats(out.summary || { total:0,pending:0,approved:0,rejected:0 });
+        renderRows();
+      } catch (e) {
+        $('queue_msg').textContent = `Queue load failed: ${e.message}`;
       }
     }
 
@@ -142,6 +309,7 @@
         save(s);
         $('user_msg').textContent = 'User saved.';
         await refreshStatus();
+        await refreshQueue();
       } catch (e) {
         $('user_msg').textContent = `Save failed: ${e.message}`;
       }
@@ -149,11 +317,13 @@
 
     $('reset').addEventListener('click', () => {
       localStorage.removeItem(STORE);
+      queueRows = [];
       $('user_msg').textContent = 'Reset done.';
       $('gmail_msg').textContent = '';
       $('pd_msg').textContent = '';
       $('queue_msg').textContent = '';
       $('queue_card').classList.add('hidden');
+      $('drafts_card').classList.add('hidden');
       refreshStatus();
     });
 
@@ -210,17 +380,51 @@
       if (!s.email) return;
       $('queue_msg').textContent = 'Generating queue from Gmail history...';
       try {
-        const out = await api('/api/queue/generate', { method:'POST', body: JSON.stringify({ email: s.email, max_messages: 150 }) });
-        const rows = out.rows || [];
-        $('rows').innerHTML = rows.map(r =>
-          `<tr><td>${r.organization_name}<div class="muted">${r.organization_domain}</div></td><td>${r.primary_contact_email}</td><td>${r.threads_count}</td><td>${fmt(r.last_message_at)}</td><td>${r.status}</td></tr>`
-        ).join('');
-        $('queue_card').classList.remove('hidden');
+        const out = await api('/api/queue/generate', { method:'POST', body: JSON.stringify({ email: s.email, max_messages: 220 }) });
+        queueRows = out.rows || [];
+        $('queue_card').classList.toggle('hidden', queueRows.length < 1);
+        renderRows();
+        renderStats({
+          total: queueRows.length,
+          pending: out.summary.pending || 0,
+          approved: out.summary.approved || 0,
+          rejected: out.summary.rejected || 0,
+        });
         $('queue_msg').textContent = `Done: ${out.summary.organizations} organizations from ${out.summary.messages_scanned} messages.`;
       } catch (e) {
         $('queue_msg').textContent = `Failed: ${e.message}`;
       }
     });
+
+    $('refresh_queue').addEventListener('click', refreshQueue);
+
+    $('generate_drafts').addEventListener('click', async () => {
+      const s = load();
+      if (!s.email) return;
+      try {
+        const out = await api('/api/drafts/generate', { method:'POST', body: JSON.stringify({ email: s.email }) });
+        $('drafts_meta').textContent = `Owner signature: ${out.owner_name}. Drafts: ${out.count}.`;
+        $('drafts_list').innerHTML = (out.drafts || []).map((d) => `
+          <div class="block">
+            <div><strong>${esc(d.organization)}</strong> (${esc(d.organization_domain)})</div>
+            <div class="muted">To: ${esc(d.to)}</div>
+            <div class="muted">Context: ${esc(d.summary || '')}</div>
+            <pre>${esc(d.draft || '')}</pre>
+          </div>
+        `).join('') || '<div class="muted">No approved rows yet.</div>';
+        $('drafts_card').classList.remove('hidden');
+      } catch (e) {
+        $('queue_msg').textContent = `Draft generation failed: ${e.message}`;
+      }
+    });
+
+    ['search', 'status_filter', 'hide_auto'].forEach((id) => {
+      $(id).addEventListener('input', renderRows);
+      $(id).addEventListener('change', renderRows);
+    });
+
+    $('m_close').addEventListener('click', () => $('modal').classList.remove('open'));
+    $('modal').addEventListener('click', (e) => { if (e.target.id === 'modal') $('modal').classList.remove('open'); });
 
     (function parseAuthResult() {
       const q = new URLSearchParams(window.location.search || '');
@@ -235,7 +439,7 @@
       if (gmail) history.replaceState(null, '', '/');
     })();
 
-    refreshStatus();
+    refreshStatus().then(refreshQueue);
   </script>
 </body>
 </html>
