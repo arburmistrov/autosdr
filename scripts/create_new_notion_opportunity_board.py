@@ -36,6 +36,7 @@ def build_board_properties(stage_order):
         "Company": {"rich_text": {}},
         "Contact": {"rich_text": {}},
         "Owner": {"rich_text": {}},
+        "LinkedIn": {"url": {}},
         "Deal Value": {"number": {"format": "number_with_commas"}},
         "Currency": {"select": {"options": [{"name": "EUR"}, {"name": "USD"}, {"name": "CHF"}, {"name": "GBP"}]}},
         "Expected Close Date": {"date": {}},

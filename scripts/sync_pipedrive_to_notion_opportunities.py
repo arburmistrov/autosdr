@@ -96,27 +96,8 @@ def build_card_title(
     deal_value,
     currency: str,
 ) -> str:
-    title = (base_title or "").strip() or "Untitled deal"
-    right = []
-    country = infer_country_from_title(title)
-    if country:
-        right.append(country)
-    if size:
-        right.append(size)
-    if domains:
-        right.append("/".join(domains))
-    owner = compact_owner(owner_name)
-    right.append(owner)
-    if expected_close:
-        right.append(expected_close.isoformat())
-    if deal_value not in (None, "", 0, "0"):
-        try:
-            amt = int(float(str(deal_value)))
-            cur = (currency or "").upper().strip()
-            right.append(f"{amt:,} {cur}".strip())
-        except Exception:
-            pass
-    return f"{title} | {' · '.join(right)}"
+    # Keep board titles clean. Key details are shown via card properties in Notion view settings.
+    return (base_title or "").strip() or "Untitled deal"
 
 
 def load_json(path: Path) -> dict:
@@ -297,6 +278,63 @@ def resolve_field_by_name(deal: dict, field_name: str, deal_field_keys: Dict[str
     return deal.get(key)
 
 
+def find_first_url_like(value) -> str:
+    if isinstance(value, str):
+        text = value.strip()
+        if text.startswith("http://") or text.startswith("https://"):
+            return text
+        for u in extract_urls(text):
+            if u.startswith("http://") or u.startswith("https://"):
+                return u
+        return ""
+    if isinstance(value, list):
+        for item in value:
+            u = find_first_url_like(item)
+            if u:
+                return u
+        return ""
+    if isinstance(value, dict):
+        for k in ("value", "url", "link", "href"):
+            if k in value:
+                u = find_first_url_like(value.get(k))
+                if u:
+                    return u
+        for v in value.values():
+            u = find_first_url_like(v)
+            if u:
+                return u
+        return ""
+    return ""
+
+
+def find_linkedin_url(data: dict) -> str:
+    if not isinstance(data, dict):
+        return ""
+    for k, v in data.items():
+        key = str(k).lower()
+        if "linkedin" not in key:
+            continue
+        u = find_first_url_like(v)
+        if u:
+            return u
+    for v in data.values():
+        if isinstance(v, dict):
+            u = find_linkedin_url(v)
+            if u:
+                return u
+        elif isinstance(v, list):
+            for item in v:
+                if isinstance(item, dict):
+                    u = find_linkedin_url(item)
+                    if u:
+                        return u
+                else:
+                    u = find_first_url_like(item)
+                    if "linkedin.com" in u.lower():
+                        return u
+    return ""
+
+
 def build_doc_links(deal: dict, deal_field_keys: Dict[str, str], notes: List[dict], doc_hints: dict) -> Dict[str, str]:
     out = {"brief": "", "scope": "", "estimate": "", "presentation": ""}
     custom_fields = {
@@ -309,6 +347,21 @@ def build_doc_links(deal: dict, deal_field_keys: Dict[str, str], notes: List[dic
         val = resolve_field_by_name(deal, fname, deal_field_keys)
         if isinstance(val, str) and val.strip().startswith("http"):
             out[k] = val.strip()
+
+    # Backward-compatible aliases from existing Pipedrive setup.
+    estimate_aliases = [
+        "Ссылка на папку с материалами",
+        "Ссылка на папку",
+        "Materials folder link",
+        "Link to materials folder",
+    ]
+    if not out["estimate"]:
+        for alias in estimate_aliases:
+            val = resolve_field_by_name(deal, alias, deal_field_keys)
+            url = find_first_url_like(val)
+            if url:
+                out["estimate"] = url
+                break
 
     note_links = resolve_doc_links_from_notes(doc_hints, notes)
     for k in out.keys():
@@ -490,6 +543,10 @@ class PipedriveClient:
         payload = self.get("/notes", params={"deal_id": deal_id, "start": 0, "limit": max(1, limit)})
         return payload.get("data") or []
 
+    def person_by_id(self, person_id: int) -> dict:
+        payload = self.get(f"/persons/{person_id}", params={})
+        return payload.get("data") or {}
+
 
 class NotionClient:
     def __init__(self, token: str, timeout_sec: int = 60, max_retries: int = 4, backoff_sec: float = 1.5):
@@ -648,6 +705,7 @@ def run_sync(args):
     deal_status = (args.deals_status or str(sync_cfg.get("deals_status", "all_not_deleted"))).strip()
     use_raw_stage_names = bool(sync_cfg.get("use_raw_stage_names", False))
     deals = dedupe_by_deal_id(pd.collect_deals(max_items=0, deal_status=deal_status))
+    person_cache: Dict[int, dict] = {}
 
     pipeline_filters = []
     if args.pipeline_name:
@@ -748,6 +806,21 @@ def run_sync(args):
                     or ""
                 ).strip()
             )
+            person_id = nested_get(deal, "person_id.value") or nested_get(deal, "person_id.id")
+            person_data = {}
+            if person_id not in (None, "", 0, "0"):
+                try:
+                    pid = int(person_id)
+                    if pid not in person_cache:
+                        person_cache[pid] = pd.person_by_id(pid)
+                    person_data = person_cache.get(pid) or {}
+                except Exception:
+                    person_data = {}
+            linkedin_url = (
+                find_linkedin_url(deal)
+                or find_linkedin_url(person_data)
+                or ""
+            )
             expected_close = parse_date(str(deal.get("expected_close_date") or "")) or None
             deal_value = deal.get("value")
             currency = str(deal.get("currency") or "").strip().upper()
@@ -785,6 +858,7 @@ def run_sync(args):
                 "company": company_name,
                 "contact": contact_name,
                 "owner": owner_name,
+                "linkedin": linkedin_url,
                 "deal_value": deal_value,
                 "currency": currency,
                 "expected_close_date": expected_close,
