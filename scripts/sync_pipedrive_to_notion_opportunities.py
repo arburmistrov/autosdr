@@ -856,9 +856,6 @@ def run_sync(args):
             )
             days_in_stage = max(0, (today - stage_enter_date).days)
             sla_color = compute_sla_color(days_in_stage)
-            final_stage, block_reason = evaluate_gate(target_stage, checks, readiness, stage_order)
-            gate_status = "Blocked" if block_reason else "Pass"
-            sync_note = block_reason or ""
             company_name = (
                 str(nested_get(deal, "org_id.name") or deal.get("org_name") or "").strip()
             )
@@ -894,6 +891,9 @@ def run_sync(args):
             checks = compute_checks(deal, doc_links, field_keys, readiness)
             readiness_percent = compute_readiness_percent(checks)
             docs_status = classify_docs_status(doc_links)
+            final_stage, block_reason = evaluate_gate(target_stage, checks, readiness, stage_order)
+            gate_status = "Blocked" if block_reason else "Pass"
+            sync_note = block_reason or ""
             linkedin_url = (
                 find_linkedin_url(deal)
                 or find_linkedin_url(person_data)
