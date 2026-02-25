@@ -228,6 +228,9 @@ def on_startup() -> None:
     init_db()
 
 
+init_db()
+
+
 @app.get("/")
 def index() -> FileResponse:
     return FileResponse(BASE_DIR / "static" / "index.html")
@@ -697,7 +700,7 @@ def load_queue_rows(user_email: str) -> list[dict[str, Any]]:
             0 if x.get("status") == "pending" else 1,
             0 if x.get("auto_status") == "pending" else 1,
             -int(x.get("followup_score", 0)),
-            parse_iso(str(x.get("last_message_at", ""))),
+            -parse_iso(str(x.get("last_message_at", ""))).timestamp(),
         )
     )
     for i, row in enumerate(out, start=1):
@@ -949,7 +952,7 @@ async def generate_queue(payload: QueuePayload) -> dict[str, Any]:
         key=lambda r: (
             0 if r.get("auto_status") == "pending" else 1,
             -int(r.get("followup_score", 0)),
-            parse_iso(str(r.get("last_message_at", ""))),
+            -parse_iso(str(r.get("last_message_at", ""))).timestamp(),
         )
     )
 
