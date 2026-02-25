@@ -589,6 +589,9 @@ class NotionClient:
     def get_database(self, database_id: str) -> dict:
         return self._request("GET", f"/v1/databases/{database_id}")
 
+    def update_database(self, database_id: str, properties: dict) -> dict:
+        return self._request("PATCH", f"/v1/databases/{database_id}", {"properties": properties})
+
     def get_data_source(self, data_source_id: str) -> dict:
         return self._request("GET", f"/v1/data-sources/{data_source_id}")
 
@@ -726,6 +729,25 @@ def run_sync(args):
     manual_fields = sync_cfg.get("manual_fields", [])
     stage_order = stage_cfg.get("stage_order", [])
     doc_hints = sync_cfg.get("doc_hints", {})
+
+    # Auto-create a small set of optional properties if mapping expects them.
+    optional_property_defs = {
+        "linkedin": {"url": {}},
+    }
+    missing_to_create = {}
+    for logical_key, notion_name in prop_map.items():
+        if notion_name in schema_props:
+            continue
+        prop_def = optional_property_defs.get(logical_key)
+        if prop_def:
+            missing_to_create[notion_name] = prop_def
+    if missing_to_create:
+        try:
+            db = notion.update_database(notion_db, missing_to_create)
+            schema_props = db.get("properties") or schema_props
+        except Exception:
+            # Keep sync alive even if schema update is restricted.
+            pass
 
     existing_pages = notion.list_pages(notion_db)
     deal_id_prop = prop_map.get("crm_deal_id", "CRM Deal ID")
