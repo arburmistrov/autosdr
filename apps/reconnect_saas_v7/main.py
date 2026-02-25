@@ -688,10 +688,53 @@ def company_name_from_domain(domain: str) -> str:
     root = (domain or "").split(".", 1)[0]
     if not root:
         return domain
-    parts = [p for p in re.split(r"[-_]+", root) if p]
-    out = []
+    parts = [p for p in re.split(r"[-_]+", root.lower()) if p]
+    if not parts:
+        return root
+
+    suffixes = (
+        "group",
+        "holding",
+        "holdings",
+        "studio",
+        "studios",
+        "systems",
+        "solutions",
+        "digital",
+        "labs",
+        "lab",
+        "tech",
+        "software",
+        "services",
+        "consulting",
+        "agency",
+        "ventures",
+        "media",
+        "global",
+    )
+
+    def split_suffix_token(token: str) -> list[str]:
+        for sfx in suffixes:
+            if token.endswith(sfx) and len(token) > len(sfx) + 1:
+                left = token[: -len(sfx)]
+                # Acronym-like prefix + known company suffix (e.g. "bbcgroup" -> "BBC Group")
+                if left.isalpha() and 2 <= len(left) <= 4:
+                    return [left.upper(), sfx.title()]
+                return [left, sfx]
+        return [token]
+
+    norm_parts: list[str] = []
     for p in parts:
-        out.append(p.upper() if p.isalpha() and len(p) <= 4 else p.title())
+        norm_parts.extend(split_suffix_token(p))
+
+    out: list[str] = []
+    for p in norm_parts:
+        if p.isupper():
+            out.append(p)
+        elif p.isalpha() and len(p) <= 3:
+            out.append(p.upper())
+        else:
+            out.append(p.title())
     return " ".join(out)
 
 
