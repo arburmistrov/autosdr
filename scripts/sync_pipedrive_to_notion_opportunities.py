@@ -339,7 +339,14 @@ def find_linkedin_url(data) -> str:
     return ""
 
 
-def build_doc_links(deal: dict, deal_field_keys: Dict[str, str], notes: List[dict], doc_hints: dict) -> Dict[str, str]:
+def build_doc_links(
+    deal: dict,
+    deal_field_keys: Dict[str, str],
+    notes: List[dict],
+    doc_hints: dict,
+    person: Optional[dict] = None,
+    person_field_keys: Optional[Dict[str, str]] = None,
+) -> Dict[str, str]:
     out = {"brief": "", "scope": "", "estimate": "", "presentation": ""}
     custom_fields = {
         "brief": "doc_brief_url",
@@ -366,6 +373,13 @@ def build_doc_links(deal: dict, deal_field_keys: Dict[str, str], notes: List[dic
             if url:
                 out["estimate"] = url
                 break
+    if not out["estimate"] and person and person_field_keys:
+        for alias in estimate_aliases:
+            val = resolve_field_by_name(person, alias, person_field_keys)
+            url = find_first_url_like(val)
+            if url:
+                out["estimate"] = url
+                break
     if not out["estimate"]:
         # Generic fallback: any URL field whose label hints materials/estimation scope.
         hint_tokens = ("папк", "material", "estimate", "estimation")
@@ -374,6 +388,16 @@ def build_doc_links(deal: dict, deal_field_keys: Dict[str, str], notes: List[dic
             if not any(t in lname for t in hint_tokens):
                 continue
             url = find_first_url_like(deal.get(field_key))
+            if url:
+                out["estimate"] = url
+                break
+    if not out["estimate"] and person and person_field_keys:
+        hint_tokens = ("папк", "material", "estimate", "estimation")
+        for field_name, field_key in person_field_keys.items():
+            lname = str(field_name).strip().lower()
+            if not any(t in lname for t in hint_tokens):
+                continue
+            url = find_first_url_like(person.get(field_key))
             if url:
                 out["estimate"] = url
                 break
@@ -554,6 +578,15 @@ class PipedriveClient:
                 out[name] = key
         return out
 
+    def person_field_name_key_map(self) -> Dict[str, str]:
+        out = {}
+        for row in self.iter_paginated("/personFields", params={}, limit=500):
+            name = str(row.get("name", "")).strip()
+            key = str(row.get("key", "")).strip()
+            if name and key:
+                out[name] = key
+        return out
+
     def notes_by_deal(self, deal_id: int, limit: int = 20) -> List[dict]:
         payload = self.get("/notes", params={"deal_id": deal_id, "start": 0, "limit": max(1, limit)})
         return payload.get("data") or []
@@ -717,6 +750,7 @@ def run_sync(args):
     stage_map = pd.stage_id_name_map()
     pipeline_map = pd.pipeline_id_name_map()
     field_keys = pd.deal_field_name_key_map()
+    person_field_keys = pd.person_field_name_key_map()
     max_deals = args.max_deals if args.max_deals > 0 else int(sync_cfg.get("max_deals_per_run", 0))
     scan_notes = args.scan_notes or bool(sync_cfg.get("scan_notes_for_docs", False))
     notes_limit = int(sync_cfg.get("notes_limit_per_deal", 20))
@@ -814,7 +848,6 @@ def run_sync(args):
             else:
                 target_stage = map_stage(raw_stage, stage_cfg)
             notes = pd.notes_by_deal(did, limit=notes_limit) if scan_notes else []
-            doc_links = build_doc_links(deal, field_keys, notes, doc_hints)
             checks = compute_checks(deal, doc_links, field_keys, readiness)
             readiness_percent = compute_readiness_percent(checks)
             docs_status = classify_docs_status(doc_links)
@@ -853,6 +886,14 @@ def run_sync(args):
                     person_data = person_cache.get(pid) or {}
                 except Exception:
                     person_data = {}
+            doc_links = build_doc_links(
+                deal,
+                field_keys,
+                notes,
+                doc_hints,
+                person=person_data,
+                person_field_keys=person_field_keys,
+            )
             linkedin_url = (
                 find_linkedin_url(deal)
                 or find_linkedin_url(person_data)
