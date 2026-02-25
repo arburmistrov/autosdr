@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import datetime as dt
+import html
 import json
 import os
 import re
@@ -19,6 +20,7 @@ NOTION_VERSION = "2022-06-28"
 URL_RE = re.compile(r"https?://[^\s<>)\"']+", re.IGNORECASE)
 SIZE_RE = re.compile(r"\[(S|M|L|M/L|L/XL)\]", re.IGNORECASE)
 COUNTRY_RE = re.compile(r"\[([A-Za-z][A-Za-z \-]{1,30})\]")
+HTML_TAG_RE = re.compile(r"<[^>]+>")
 
 
 def infer_size_from_title(title: str) -> str:
@@ -44,6 +46,32 @@ def infer_domains_from_text(text: str) -> List[str]:
     if any(x in t for x in ["blockchain", "web3", "smart contract", "defi"]):
         out.append("Blockchain")
     # preserve order and uniqueness
+    seen = set()
+    uniq = []
+    for v in out:
+        if v in seen:
+            continue
+        seen.add(v)
+        uniq.append(v)
+    return uniq
+
+
+def infer_product_tags(text: str) -> List[str]:
+    t = (text or "").lower()
+    rules = [
+        (["mobile", "ios", "android", "react native", "flutter", "app"], "Mobile App"),
+        (["web app", "website", "portal", "frontend", "backend", "dashboard", "saas"], "Web App"),
+        (["design", "ui/ux", "ux", "figma", "re-design", "redesign", "branding"], "Design"),
+        (["consult", "advisory", "discovery", "audit", "workshop"], "Consulting"),
+        (["blockchain", "web3", "smart contract", "defi", "crypto"], "Blockchain"),
+        (["ai", "llm", "gpt", "rag", "agent", "automation"], "AI Concept"),
+        (["mvp", "prototype", "poc", "proof of concept"], "MVP"),
+        (["outstaff", "dedicated team", "staff augmentation"], "Outstaff"),
+    ]
+    out = []
+    for hints, tag in rules:
+        if any(h in t for h in hints):
+            out.append(tag)
     seen = set()
     uniq = []
     for v in out:
@@ -243,6 +271,82 @@ def extract_urls(text: str) -> List[str]:
     if not text:
         return []
     return [m.group(0).rstrip(".,;") for m in URL_RE.finditer(text)]
+
+
+def clean_text(value) -> str:
+    if value is None:
+        return ""
+    text = str(value)
+    text = html.unescape(text)
+    text = HTML_TAG_RE.sub(" ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+def truncate_text(text: str, limit: int = 260) -> str:
+    t = (text or "").strip()
+    if len(t) <= limit:
+        return t
+    return t[: max(0, limit - 1)].rstrip() + "…"
+
+
+def summarize_deal(
+    title: str,
+    company_name: str,
+    contact_name: str,
+    owner_name: str,
+    stage_name: str,
+    pipeline_name: str,
+    deal_value,
+    currency: str,
+    expected_close: Optional[dt.date],
+    docs_status: str,
+    notes: List[dict],
+    activities: List[dict],
+) -> str:
+    client = company_name or contact_name or "Unknown client"
+    owner = owner_name or "Unassigned"
+    stage = stage_name or "Unknown stage"
+    parts = [
+        f"Client: {client}.",
+        f"Deal: {title}.",
+        f"Now: {pipeline_name} -> {stage}, owner {owner}.",
+    ]
+    if deal_value not in (None, "", 0, "0"):
+        try:
+            amt = int(float(str(deal_value)))
+            cur = (currency or "").upper().strip()
+            parts.append(f"Budget: {amt:,} {cur}".strip() + ".")
+        except Exception:
+            pass
+    if expected_close:
+        parts.append(f"Target close: {expected_close.isoformat()}.")
+    parts.append(f"Docs: {docs_status}.")
+
+    done = sum(1 for a in activities if truthy(a.get("done")))
+    open_cnt = sum(1 for a in activities if not truthy(a.get("done")))
+    if activities:
+        latest = sorted(
+            activities,
+            key=lambda a: str(a.get("update_time") or a.get("add_time") or ""),
+            reverse=True,
+        )[0]
+        latest_txt = clean_text(latest.get("subject") or latest.get("note") or latest.get("type") or "")
+        if latest_txt:
+            parts.append(f"Latest activity: {truncate_text(latest_txt, 120)}.")
+        parts.append(f"Activities: {done} done / {open_cnt} open.")
+
+    note_texts = []
+    for n in sorted(notes, key=lambda x: str(x.get("update_time") or x.get("add_time") or ""), reverse=True):
+        txt = clean_text(n.get("content") or "")
+        if txt:
+            note_texts.append(txt)
+        if len(note_texts) >= 2:
+            break
+    if note_texts:
+        parts.append(f"Context: {truncate_text(' | '.join(note_texts), 300)}")
+
+    return " ".join(parts)
 
 
 def resolve_doc_links_from_notes(doc_hints: dict, notes: List[dict]) -> Dict[str, str]:
@@ -591,6 +695,10 @@ class PipedriveClient:
         payload = self.get("/notes", params={"deal_id": deal_id, "start": 0, "limit": max(1, limit)})
         return payload.get("data") or []
 
+    def activities_by_deal(self, deal_id: int, limit: int = 20) -> List[dict]:
+        payload = self.get("/activities", params={"deal_id": deal_id, "start": 0, "limit": max(1, limit)})
+        return payload.get("data") or []
+
     def person_by_id(self, person_id: int) -> dict:
         payload = self.get(f"/persons/{person_id}", params={})
         return payload.get("data") or {}
@@ -754,6 +862,8 @@ def run_sync(args):
     max_deals = args.max_deals if args.max_deals > 0 else int(sync_cfg.get("max_deals_per_run", 0))
     scan_notes = args.scan_notes or bool(sync_cfg.get("scan_notes_for_docs", False))
     notes_limit = int(sync_cfg.get("notes_limit_per_deal", 20))
+    activities_limit = int(sync_cfg.get("activities_limit_per_deal", 20))
+    scan_activities = bool(sync_cfg.get("scan_activities_for_summary", True))
     deal_status = (args.deals_status or str(sync_cfg.get("deals_status", "all_not_deleted"))).strip()
     use_raw_stage_names = bool(sync_cfg.get("use_raw_stage_names", False))
     deals = dedupe_by_deal_id(pd.collect_deals(max_items=0, deal_status=deal_status))
@@ -782,6 +892,8 @@ def run_sync(args):
     # Auto-create a small set of optional properties if mapping expects them.
     optional_property_defs = {
         "linkedin": {"url": {}},
+        "executive_summary": {"rich_text": {}},
+        "product_guess": {"multi_select": {}},
     }
     missing_to_create = {}
     for logical_key, notion_name in prop_map.items():
@@ -848,6 +960,7 @@ def run_sync(args):
             else:
                 target_stage = map_stage(raw_stage, stage_cfg)
             notes = pd.notes_by_deal(did, limit=notes_limit) if scan_notes else []
+            activities = pd.activities_by_deal(did, limit=activities_limit) if scan_activities else []
             stage_enter_date = (
                 parse_date(str(deal.get("stage_change_time") or ""))
                 or parse_date(str(deal.get("update_time") or ""))
@@ -915,6 +1028,30 @@ def run_sync(args):
                 )
             )
             inferred_confidence = infer_confidence(final_stage)
+            product_guess = infer_product_tags(
+                " ".join(
+                    [
+                        title,
+                        str(company_name),
+                        str(contact_name),
+                        " ".join(clean_text(n.get("content") or "") for n in notes[:4]),
+                    ]
+                )
+            )
+            executive_summary = summarize_deal(
+                title=title,
+                company_name=company_name,
+                contact_name=contact_name,
+                owner_name=owner_name,
+                stage_name=final_stage,
+                pipeline_name=pipeline_name,
+                deal_value=deal_value,
+                currency=currency,
+                expected_close=expected_close,
+                docs_status=docs_status,
+                notes=notes,
+                activities=activities,
+            )
             card_title = build_card_title(
                 title,
                 owner_name,
@@ -932,6 +1069,8 @@ def run_sync(args):
                 "size": inferred_size,
                 "domain": inferred_domains,
                 "confidence": inferred_confidence,
+                "product_guess": product_guess,
+                "executive_summary": executive_summary,
                 "pipeline": pipeline_name,
                 "company": company_name,
                 "contact": contact_name,

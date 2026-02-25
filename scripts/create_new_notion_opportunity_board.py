@@ -54,7 +54,18 @@ def build_board_properties(stage_order):
         "Last Sync At": {"date": {}},
         "Size": {"select": {"options": [{"name": "S"}, {"name": "M"}, {"name": "L"}]}},
         "Domain": {"multi_select": {"options": [{"name": "Mob"}, {"name": "Web"}, {"name": "Blockchain"}]}},
+        "Product Guess": {"multi_select": {"options": [
+            {"name": "Mobile App"},
+            {"name": "Web App"},
+            {"name": "Design"},
+            {"name": "Consulting"},
+            {"name": "Blockchain"},
+            {"name": "AI Concept"},
+            {"name": "MVP"},
+            {"name": "Outstaff"}
+        ]}},
         "Confidence": {"select": {"options": [{"name": "Low"}, {"name": "Medium"}, {"name": "High"}]}},
+        "Executive Summary": {"rich_text": {}},
     }
 
 
