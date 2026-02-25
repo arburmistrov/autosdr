@@ -15,6 +15,9 @@
     "title": "Name",
     "crm_deal_id": "CRM Deal ID",
     "stage": "Stage",
+    "size": "Size",
+    "domain": "Domain",
+    "confidence": "Confidence",
     "pipeline": "Pipeline",
     "company": "Company",
     "contact": "Contact",
@@ -36,9 +39,6 @@
     "last_sync_at": "Last Sync At"
   },
   "manual_fields": [
-    "Size",
-    "Domain",
-    "Confidence",
     "Future Size",
     "Future Domain",
     "Future Confidence"
