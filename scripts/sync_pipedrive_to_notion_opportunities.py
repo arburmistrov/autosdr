@@ -59,7 +59,7 @@ def infer_domains_from_text(text: str) -> List[str]:
 def infer_product_tags(text: str) -> List[str]:
     t = (text or "").lower()
     rules = [
-        (["mobile", "ios", "android", "react native", "flutter", "app"], "Mobile App"),
+        (["mobile", "mob ", "mob]", "mob)", "ios", "android", "react native", "flutter", "app"], "Mobile App"),
         (["web app", "website", "portal", "frontend", "backend", "dashboard", "saas"], "Web App"),
         (["design", "ui/ux", "ux", "figma", "re-design", "redesign", "branding"], "Design"),
         (["consult", "advisory", "discovery", "audit", "workshop"], "Consulting"),
