@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Reconnect SaaS v6</title>
+  <style>
+    :root { --bg:#eef4ef; --card:#fff; --line:#d2ddd4; --text:#16231b; --muted:#5f7065; --brand:#0d7a6b; --warn:#8c5f18; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:"Avenir Next","Segoe UI",sans-serif; color:var(--text); background:radial-gradient(circle at 0% 0%, #d7e9dc 0%, transparent 35%),radial-gradient(circle at 100% 100%, #f4e4d7 0%, transparent 35%),var(--bg); }
+    .wrap { max-width:1080px; margin:26px auto; padding:0 16px 28px; }
+    h1 { margin:0 0 8px; font-size:34px; }
+    .sub { color:var(--muted); margin-bottom:14px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px; }
+    .card h2 { margin:0 0 10px; font-size:20px; }
+    .row { display:grid; grid-template-columns:1fr; gap:10px; margin-bottom:10px; }
+    .cols2 { grid-template-columns:1fr 1fr; }
+    @media (max-width:760px){ .cols2 { grid-template-columns:1fr; } }
+    label { display:block; font-size:13px; color:var(--muted); margin-bottom:6px; }
+    input { width:100%; border:1px solid var(--line); border-radius:10px; padding:10px 11px; font:inherit; }
+    .btns { display:flex; gap:8px; flex-wrap:wrap; }
+    button { border:1px solid var(--line); border-radius:10px; padding:10px 12px; font:inherit; background:#fff; cursor:pointer; }
+    button.primary { background:var(--brand); border-color:var(--brand); color:#fff; }
+    button:disabled { opacity:.6; cursor:not-allowed; }
+    .muted { color:var(--muted); }
+    .ok { color:#0b7a63; font-weight:600; }
+    .warn { color:var(--warn); font-weight:600; }
+    .hidden { display:none; }
+    .progress { font-size:13px; color:var(--muted); margin-top:8px; }
+    table { width:100%; border-collapse: collapse; }
+    th,td { border-bottom:1px solid var(--line); padding:8px; text-align:left; font-size:13px; vertical-align:top; }
+    th { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Reconnect Campaign SaaS v6</h1>
+    <div class="sub">Real queue from current user's Gmail history.</div>
+
+    <section class="card">
+      <h2>1) User</h2>
+      <div class="row cols2">
+        <div><label>Your Name</label><input id="user_name" placeholder="Maksym Golovan" /></div>
+        <div><label>Your Email</label><input id="user_email" placeholder="mgolovan@s-pro.io" type="email" /></div>
+      </div>
+      <div class="btns">
+        <button class="primary" id="save_profile">Save user</button>
+        <button id="reset_all">Reset</button>
+      </div>
+      <p id="profile_msg" class="muted"></p>
+    </section>
+
+    <section class="card">
+      <h2>2) Connect Gmail</h2>
+      <div class="row">
+        <div>
+          <label>Admin OAuth Client ID (set once for team)</label>
+          <input id="google_client_id" placeholder="123...apps.googleusercontent.com" />
+        </div>
+      </div>
+      <div class="btns">
+        <button class="primary" id="connect_gmail">Connect my Gmail</button>
+        <button id="disconnect_gmail">Disconnect Gmail</button>
+      </div>
+      <p id="gmail_msg" class="muted"></p>
+      <p>Gmail status: <span id="gmail_state" class="warn">Not connected</span></p>
+      <p class="muted">Redirect URI for Google Console: <code>https://arburmistrov.github.io/autosdr/reconnect-saas-v6/</code></p>
+    </section>
+
+    <section class="card">
+      <h2>3) Connect Pipedrive</h2>
+      <div class="row cols2">
+        <div><label>Pipedrive Company Domain</label><input id="pd_domain" placeholder="acme" /></div>
+        <div><label>Pipedrive API Token</label><input id="pd_token" type="password" placeholder="pdt_xxx" /></div>
+      </div>
+      <div class="btns">
+        <button class="primary" id="save_pd">Save Pipedrive</button>
+        <button id="clear_pd">Disconnect Pipedrive</button>
+      </div>
+      <p id="pd_msg" class="muted"></p>
+    </section>
+
+    <section class="card">
+      <h2>4) Generate Real Queue</h2>
+      <div class="btns">
+        <button class="primary" id="generate_btn" disabled>Generate from my Gmail history</button>
+      </div>
+      <div id="progress" class="progress"></div>
+    </section>
+
+    <section class="card hidden" id="queue_card">
+      <h2>Approval Queue (Organization-Level)</h2>
+      <table>
+        <thead><tr><th>Organization</th><th>Primary Contact</th><th>Threads</th><th>Last Message</th><th>Status</th></tr></thead>
+        <tbody id="queue_rows"></tbody>
+      </table>
+    </section>
+  </div>
+
+  <script>
+    const STORE = 'reconnect_saas_v6';
+    const REDIRECT_URI = 'https://arburmistrov.github.io/autosdr/reconnect-saas-v6/';
+    const FREE_DOMAINS = new Set(['gmail.com','googlemail.com','yahoo.com','hotmail.com','outlook.com','icloud.com','aol.com','mail.com','proton.me','protonmail.com','yandex.com','gmx.com','msn.com','live.com']);
+    const $ = (id) => document.getElementById(id);
+
+    function load() { try { return JSON.parse(localStorage.getItem(STORE) || '{}'); } catch { return {}; } }
+    function save(s) { localStorage.setItem(STORE, JSON.stringify(s)); }
+
+    function parseEmail(raw) {
+      const m = String(raw || '').match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+      return (m ? m[0] : '').toLowerCase();
+    }
+
+    function fmtDate(iso) {
+      if (!iso) return '';
+      try { return new Date(iso).toISOString().replace('T',' ').replace('.000Z',' UTC'); }
+      catch { return iso; }
+    }
+
+    function refresh() {
+      const s = load();
+      $('user_name').value = s.user_name || '';
+      $('user_email').value = s.user_email || '';
+      $('google_client_id').value = s.google_client_id || '';
+      $('pd_domain').value = s.pd_domain || '';
+      $('gmail_state').textContent = s.gmail_connected ? 'Connected' : 'Not connected';
+      $('gmail_state').className = s.gmail_connected ? 'ok' : 'warn';
+      const ready = !!(s.user_email && s.gmail_access_token && s.pd_domain && s.pd_token_masked);
+      $('generate_btn').disabled = !ready;
+    }
+
+    async function gmailApi(path) {
+      const s = load();
+      const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/${path}`, {
+        headers: { Authorization: `Bearer ${s.gmail_access_token}` },
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(`Gmail API ${res.status}: ${txt.slice(0, 180)}`);
+      }
+      return res.json();
+    }
+
+    function updateProgress(t) { $('progress').textContent = t; }
+
+    async function buildQueueFromGmail() {
+      updateProgress('Loading Gmail profile...');
+      const profile = await gmailApi('profile');
+      const ownEmail = (profile.emailAddress || '').toLowerCase();
+      const ownDomain = ownEmail.includes('@') ? ownEmail.split('@')[1] : '';
+
+      updateProgress('Listing recent messages from your history...');
+      const list = await gmailApi('messages?maxResults=220&q=-in:chats');
+      const msgs = list.messages || [];
+      const orgs = new Map();
+
+      let i = 0;
+      for (const m of msgs) {
+        i += 1;
+        if (i % 20 === 0) updateProgress(`Scanning messages ${i}/${msgs.length}...`);
+        const d = await gmailApi(`messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=To`);
+        const headers = Object.fromEntries((d.payload?.headers || []).map(h => [String(h.name || '').toLowerCase(), h.value || '']));
+        const fromEmail = parseEmail(headers['from']);
+        if (!fromEmail || !fromEmail.includes('@')) continue;
+        const domain = fromEmail.split('@')[1];
+        if (!domain || domain === ownDomain || FREE_DOMAINS.has(domain)) continue;
+
+        const row = orgs.get(domain) || {
+          organization_domain: domain,
+          organization_name: domain.split('.')[0],
+          primary_contact_email: fromEmail,
+          threads_count: 0,
+          last_message_at: '',
+          status: 'pending',
+        };
+        row.threads_count += 1;
+        const msgDate = new Date(headers['date'] || '').toISOString?.() || '';
+        if (!row.last_message_at || (msgDate && msgDate > row.last_message_at)) row.last_message_at = msgDate;
+        if (row.primary_contact_email === '' || row.threads_count === 1) row.primary_contact_email = fromEmail;
+        orgs.set(domain, row);
+      }
+
+      const rows = [...orgs.values()]
+        .sort((a,b) => (b.last_message_at || '').localeCompare(a.last_message_at || ''))
+        .slice(0, 200);
+
+      updateProgress(`Queue generated: ${rows.length} organizations.`);
+      return rows;
+    }
+
+    function renderQueue(rows) {
+      $('queue_card').classList.remove('hidden');
+      const tbody = $('queue_rows');
+      tbody.innerHTML = rows.map(r =>
+        `<tr><td>${r.organization_name}<div class="muted">${r.organization_domain}</div></td><td>${r.primary_contact_email}</td><td>${r.threads_count}</td><td>${fmtDate(r.last_message_at)}</td><td>${r.status}</td></tr>`
+      ).join('');
+    }
+
+    $('save_profile').addEventListener('click', () => {
+      const s = load();
+      s.user_name = $('user_name').value.trim();
+      s.user_email = $('user_email').value.trim();
+      save(s);
+      $('profile_msg').textContent = 'User saved.';
+      refresh();
+    });
+
+    $('reset_all').addEventListener('click', () => {
+      localStorage.removeItem(STORE);
+      $('profile_msg').textContent = 'Reset done.';
+      $('gmail_msg').textContent = '';
+      $('pd_msg').textContent = '';
+      $('queue_card').classList.add('hidden');
+      $('progress').textContent = '';
+      refresh();
+    });
+
+    $('connect_gmail').addEventListener('click', () => {
+      const s = load();
+      const email = ($('user_email').value || '').trim();
+      const clientId = ($('google_client_id').value || '').trim();
+      if (!email) { $('gmail_msg').textContent = 'Save user email first.'; return; }
+      if (!clientId) { $('gmail_msg').textContent = 'Paste team OAuth Client ID.'; return; }
+      s.user_email = email;
+      s.google_client_id = clientId;
+      save(s);
+
+      const scope = encodeURIComponent('https://www.googleapis.com/auth/gmail.readonly email profile');
+      const url = 'https://accounts.google.com/o/oauth2/v2/auth' +
+        `?client_id=${encodeURIComponent(clientId)}` +
+        `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
+        '&response_type=token' +
+        `&scope=${scope}` +
+        `&login_hint=${encodeURIComponent(email)}` +
+        '&prompt=consent';
+      window.location.href = url;
+    });
+
+    $('disconnect_gmail').addEventListener('click', () => {
+      const s = load();
+      delete s.gmail_connected;
+      delete s.gmail_access_token;
+      delete s.gmail_token_expires_at;
+      save(s);
+      $('gmail_msg').textContent = 'Gmail disconnected.';
+      refresh();
+    });
+
+    $('save_pd').addEventListener('click', () => {
+      const domain = ($('pd_domain').value || '').trim();
+      const token = ($('pd_token').value || '').trim();
+      if (!domain || !token) { $('pd_msg').textContent = 'Enter both domain and token.'; return; }
+      const s = load();
+      s.pd_domain = domain;
+      s.pd_token_masked = token.slice(0,4) + '***';
+      save(s);
+      $('pd_token').value = '';
+      $('pd_msg').textContent = 'Pipedrive connected.';
+      refresh();
+    });
+
+    $('clear_pd').addEventListener('click', () => {
+      const s = load();
+      delete s.pd_domain;
+      delete s.pd_token_masked;
+      save(s);
+      $('pd_msg').textContent = 'Pipedrive disconnected.';
+      refresh();
+    });
+
+    $('generate_btn').addEventListener('click', async () => {
+      try {
+        $('generate_btn').disabled = true;
+        const rows = await buildQueueFromGmail();
+        renderQueue(rows);
+      } catch (e) {
+        updateProgress(`Failed: ${e.message || e}`);
+      } finally {
+        refresh();
+      }
+    });
+
+    (function readOAuthCallback() {
+      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const accessToken = hash.get('access_token');
+      const expiresIn = parseInt(hash.get('expires_in') || '0', 10);
+      const error = hash.get('error');
+      if (error) {
+        $('gmail_msg').textContent = `Gmail OAuth error: ${error}`;
+        return;
+      }
+      if (!accessToken) return;
+      const s = load();
+      s.gmail_connected = true;
+      s.gmail_access_token = accessToken;
+      if (expiresIn > 0) s.gmail_token_expires_at = Date.now() + expiresIn * 1000;
+      save(s);
+      history.replaceState(null, '', window.location.pathname);
+      $('gmail_msg').textContent = 'Gmail connected.';
+    })();
+
+    refresh();
+  </script>
+</body>
+</html>
