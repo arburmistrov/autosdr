@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>S-PRO Banking AI Enablement Platform</title>
+  <meta name="description" content="Productized AI enablement platform for banks: launch governed AI agents across onboarding, screening, and operations with measurable business impact in 90 days." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css?v=1" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-row">
+      <a class="brand" href="https://s-pro.io/" target="_blank" rel="noreferrer">
+        <img class="brand-logo" src="https://s-pro.io/wp-content/uploads/2024/08/Logo-new.svg" alt="S-PRO logo" />
+      </a>
+      <nav class="header-nav">
+        <a href="#challenge">Challenge</a>
+        <a href="#platform">Platform</a>
+        <a href="#use-cases">Use Cases</a>
+        <a href="#rollout">Rollout</a>
+      </nav>
+      <a class="btn btn-primary" href="#contact">Book CIO Briefing</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero section">
+      <div class="container hero-grid">
+        <div>
+          <p class="eyebrow">NEW PRODUCT LINE</p>
+          <h1>Banking AI Enablement Platform</h1>
+          <p class="lead">Move from isolated AI pilots to a governed production system for onboarding, screening, and operations. Designed for CIO-level control, compliance, and ROI visibility.</p>
+          <div class="hero-cta-row">
+            <a class="btn btn-primary" href="#contact">Get Product Deck</a>
+            <a class="btn btn-secondary" href="#platform">Explore Architecture</a>
+          </div>
+          <ul class="hero-meta">
+            <li>Private Azure stack and controlled model access</li>
+            <li>Agent lifecycle governance from idea to production</li>
+            <li>Reusable tooling and fast deployment for new use cases</li>
+          </ul>
+        </div>
+        <div class="hero-panel reveal">
+          <h3>Built for Banking CIO priorities in 2026</h3>
+          <ul>
+            <li>Operational efficiency under regulatory pressure</li>
+            <li>AI risk controls and audit-ready traceability</li>
+            <li>Secure modernization without platform sprawl</li>
+          </ul>
+          <p class="hero-note">From concept document to productized capability.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="challenge" class="section challenge">
+      <div class="container">
+        <div class="section-head reveal">
+          <p class="eyebrow">THE CHALLENGE</p>
+          <h2>Most banks have AI activity, but not an AI operating model.</h2>
+          <p class="subhead">Pilots stay disconnected from production because architecture, governance, and business ownership are not linked end-to-end.</p>
+        </div>
+        <div class="challenge-grid">
+          <article class="reveal">
+            <h3>Fragmented tooling</h3>
+            <p>Copilot, low-code, and custom stacks run in parallel without clear selection logic per use case.</p>
+          </article>
+          <article class="reveal">
+            <h3>Weak lifecycle governance</h3>
+            <p>Teams can prototype, but formal review, deployment, monitoring, and versioning remain manual.</p>
+          </article>
+          <article class="reveal">
+            <h3>Risk of compliance gaps</h3>
+            <p>Identity, content safety, logging, and approval controls are often bolted on after development.</p>
+          </article>
+          <article class="reveal">
+            <h3>Limited business trust</h3>
+            <p>Without explainability and controlled rollout, leadership cannot confidently scale AI into core flows.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="platform" class="section platform">
+      <div class="container">
+        <div class="section-head reveal">
+          <p class="eyebrow">THE VISION</p>
+          <h2>One platform to design, govern, and scale banking AI agents.</h2>
+          <p class="subhead">A productized foundation combining Azure AI Foundry, reusable tooling microservices, and a business-friendly control layer.</p>
+        </div>
+
+        <div class="architecture reveal">
+          <article>
+            <h3>Experience Layer</h3>
+            <p>Agent portal and reviewer UI with role-based access for business and risk stakeholders.</p>
+          </article>
+          <article>
+            <h3>Orchestration Layer</h3>
+            <p>Workflow engine for multi-step agent execution, tool routing, and human-in-the-loop controls.</p>
+          </article>
+          <article>
+            <h3>Tooling Layer</h3>
+            <p>Reusable services: deep research, provider connectors, PII pseudonymization, and report composer.</p>
+          </article>
+          <article>
+            <h3>Knowledge Layer</h3>
+            <p>OCR and ingestion, blob storage, vector + keyword search, and runstate tracking for retrieval quality.</p>
+          </article>
+          <article>
+            <h3>Control Layer</h3>
+            <p>Entra ID RBAC, Key Vault, safety filters, audit telemetry, and model/agent version management.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="use-cases" class="section use-cases">
+      <div class="container">
+        <div class="section-head reveal">
+          <p class="eyebrow">SPHERES OF APPLICATION</p>
+          <h2>Start where automation depth and business value are highest.</h2>
+        </div>
+
+        <div class="tabs" role="tablist" aria-label="Banking AI use cases">
+          <button class="tab is-active" data-case="screening" type="button">Onboarding Screening</button>
+          <button class="tab" data-case="kyc" type="button">KYC and Due Diligence</button>
+          <button class="tab" data-case="ops" type="button">Operations Copilot</button>
+          <button class="tab" data-case="compliance" type="button">Compliance Reporting</button>
+        </div>
+
+        <article class="case-card reveal" id="case-card">
+          <h3 id="case-title">Onboarding Screening</h3>
+          <p id="case-summary">Aggregate data from LexisNexis, WorldCheck, and open web search into a standardized screening output with source traceability.</p>
+          <div class="case-grid">
+            <div>
+              <h4>Automation scope</h4>
+              <ul id="case-scope"></ul>
+            </div>
+            <div>
+              <h4>Controls and safeguards</h4>
+              <ul id="case-controls"></ul>
+            </div>
+            <div>
+              <h4>Expected outcome</h4>
+              <ul id="case-impact"></ul>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section decision">
+      <div class="container">
+        <div class="section-head reveal">
+          <p class="eyebrow">DECISION FRAMEWORK</p>
+          <h2>Use the right Microsoft stack for the right automation depth.</h2>
+        </div>
+
+        <div class="decision-grid">
+          <article class="reveal">
+            <h3>Copilot Standard</h3>
+            <p>Best for horizontal productivity boosts with minimal implementation overhead.</p>
+            <span>Fit: broad employee enablement</span>
+          </article>
+          <article class="reveal">
+            <h3>Copilot Studio</h3>
+            <p>Best for business-friendly low-code agent scenarios and connected enterprise workflows.</p>
+            <span>Fit: non-technical teams with guided configuration</span>
+          </article>
+          <article class="reveal">
+            <h3>Azure AI Foundry</h3>
+            <p>Best for advanced, high-control, custom-tooling use cases with strict governance requirements.</p>
+            <span>Fit: developer-led, high-risk or high-complexity flows</span>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="rollout" class="section rollout">
+      <div class="container">
+        <div class="section-head reveal">
+          <p class="eyebrow">90-DAY EXECUTION MODEL</p>
+          <h2>From use-case intake to production-ready pilot.</h2>
+        </div>
+        <div class="rollout-grid">
+          <article class="reveal">
+            <span>01</span>
+            <h3>Use Case Prioritization</h3>
+            <p>Collect and score candidates by value, risk, data availability, and implementation feasibility.</p>
+          </article>
+          <article class="reveal">
+            <span>02</span>
+            <h3>Tool Fit Assessment</h3>
+            <p>Apply decision tree to select Copilot Studio, Foundry, or hybrid architecture per use case.</p>
+          </article>
+          <article class="reveal">
+            <span>03</span>
+            <h3>Pilot Build and Validation</h3>
+            <p>Deliver working pilot with governance gates, KPI baseline, and executive decision package.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section impact">
+      <div class="container">
+        <div class="section-head reveal">
+          <p class="eyebrow">EXECUTIVE OUTCOMES</p>
+          <h2>Designed to improve speed, quality, and control together.</h2>
+        </div>
+        <div class="impact-grid">
+          <article class="metric-card reveal">
+            <h3>Screening cycle time</h3>
+            <p class="metric">-30% to -55%</p>
+          </article>
+          <article class="metric-card reveal">
+            <h3>Manual research effort</h3>
+            <p class="metric">-25% to -45%</p>
+          </article>
+          <article class="metric-card reveal">
+            <h3>Audit readiness</h3>
+            <p class="metric">High</p>
+          </article>
+          <article class="metric-card reveal">
+            <h3>Reusable tooling coverage</h3>
+            <p class="metric">Growing</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="contact" class="section contact">
+      <div class="container contact-grid reveal">
+        <div>
+          <p class="eyebrow">CTA FOR BANK CIOS</p>
+          <h2>Get the Banking AI Enablement briefing for your leadership team.</h2>
+          <p class="subhead">We will map your top 3 candidate use cases, recommend target stack per case, and provide a 90-day pilot plan.</p>
+        </div>
+        <form class="lead-form" action="https://s-pro.io/contact/" method="get" target="_blank">
+          <label>Work email<input type="email" name="email" placeholder="name@bank.com" required /></label>
+          <label>Your role<input type="text" name="role" placeholder="CIO / Head of IT / COO" required /></label>
+          <label>Top priority
+            <select name="priority" required>
+              <option value="">Select priority</option>
+              <option>Onboarding and screening automation</option>
+              <option>AI governance and controls</option>
+              <option>Tool rationalization and architecture</option>
+            </select>
+          </label>
+          <button type="submit" class="btn btn-primary">Request CIO Session</button>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-row">
+      <p>Banking AI Enablement Platform by S-PRO</p>
+      <a href="https://s-pro.io/" target="_blank" rel="noreferrer">s-pro.io</a>
+    </div>
+  </footer>
+
+  <script src="./script.js?v=1"></script>
+</body>
+</html>
