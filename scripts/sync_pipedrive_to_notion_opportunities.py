@@ -848,9 +848,6 @@ def run_sync(args):
             else:
                 target_stage = map_stage(raw_stage, stage_cfg)
             notes = pd.notes_by_deal(did, limit=notes_limit) if scan_notes else []
-            checks = compute_checks(deal, doc_links, field_keys, readiness)
-            readiness_percent = compute_readiness_percent(checks)
-            docs_status = classify_docs_status(doc_links)
             stage_enter_date = (
                 parse_date(str(deal.get("stage_change_time") or ""))
                 or parse_date(str(deal.get("update_time") or ""))
@@ -894,6 +891,9 @@ def run_sync(args):
                 person=person_data,
                 person_field_keys=person_field_keys,
             )
+            checks = compute_checks(deal, doc_links, field_keys, readiness)
+            readiness_percent = compute_readiness_percent(checks)
+            docs_status = classify_docs_status(doc_links)
             linkedin_url = (
                 find_linkedin_url(deal)
                 or find_linkedin_url(person_data)
