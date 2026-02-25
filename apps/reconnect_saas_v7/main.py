@@ -744,51 +744,52 @@ def queue_decision(payload: DecisionPayload) -> dict[str, Any]:
 
 @app.post("/api/queue/generate")
 async def generate_queue(payload: QueuePayload) -> dict[str, Any]:
-    user_email = str(payload.email).strip().lower()
-    gmail_conn = load_gmail_connection(user_email)
-    if not gmail_conn:
-        raise HTTPException(status_code=400, detail="gmail_not_connected")
+    try:
+        user_email = str(payload.email).strip().lower()
+        gmail_conn = load_gmail_connection(user_email)
+        if not gmail_conn:
+            raise HTTPException(status_code=400, detail="gmail_not_connected")
 
-    access_token = await ensure_valid_access_token(gmail_conn)
-    max_msgs = max(30, min(300, int(payload.max_messages)))
+        access_token = await ensure_valid_access_token(gmail_conn)
+        max_msgs = max(30, min(300, int(payload.max_messages)))
 
-    async with httpx.AsyncClient(timeout=40) as client:
-        list_res = await client.get(
-            "https://gmail.googleapis.com/gmail/v1/users/me/messages",
-            params={"maxResults": max_msgs, "q": "-in:chats"},
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
-        if list_res.status_code >= 400:
-            raise HTTPException(status_code=400, detail=f"gmail_list_failed: {list_res.text[:240]}")
-        ids = list_res.json().get("messages") or []
-
-        own_domain = gmail_conn.connected_email.split("@")[-1] if "@" in gmail_conn.connected_email else ""
-        orgs: dict[str, dict[str, Any]] = {}
-
-        for item in ids:
-            mid = item.get("id")
-            if not mid:
-                continue
-
-            msg_res = await client.get(
-                f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{mid}",
-                params={
-                    "format": "metadata",
-                    "metadataHeaders": ["From", "To", "Cc", "Subject"],
-                },
+        async with httpx.AsyncClient(timeout=40) as client:
+            list_res = await client.get(
+                "https://gmail.googleapis.com/gmail/v1/users/me/messages",
+                params={"maxResults": max_msgs, "q": "-in:chats"},
                 headers={"Authorization": f"Bearer {access_token}"},
             )
-            if msg_res.status_code >= 400:
-                continue
+            if list_res.status_code >= 400:
+                raise HTTPException(status_code=400, detail=f"gmail_list_failed: {list_res.text[:240]}")
+            ids = list_res.json().get("messages") or []
 
-            msg = msg_res.json()
-            headers = {
-                str(h.get("name", "")).lower(): h.get("value", "")
-                for h in (msg.get("payload", {}).get("headers") or [])
-            }
-            subject = str(headers.get("subject", "")).strip()
-            snippet = str(msg.get("snippet", "") or "").strip()
-            thread_id = str(msg.get("threadId", "") or "")
+            own_domain = gmail_conn.connected_email.split("@")[-1] if "@" in gmail_conn.connected_email else ""
+            orgs: dict[str, dict[str, Any]] = {}
+
+            for item in ids:
+                mid = item.get("id")
+                if not mid:
+                    continue
+
+                msg_res = await client.get(
+                    f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{mid}",
+                    params={
+                        "format": "metadata",
+                        "metadataHeaders": ["From", "To", "Cc", "Subject"],
+                    },
+                    headers={"Authorization": f"Bearer {access_token}"},
+                )
+                if msg_res.status_code >= 400:
+                    continue
+
+                msg = msg_res.json()
+                headers = {
+                    str(h.get("name", "")).lower(): h.get("value", "")
+                    for h in (msg.get("payload", {}).get("headers") or [])
+                }
+                subject = str(headers.get("subject", "")).strip()
+                snippet = str(msg.get("snippet", "") or "").strip()
+                thread_id = str(msg.get("threadId", "") or "")
 
             from_value = str(headers.get("from", ""))
             from_emails = extract_emails(from_value)
@@ -883,14 +884,14 @@ async def generate_queue(payload: QueuePayload) -> dict[str, Any]:
                         if snippet:
                             thread["sample"] = snippet
 
-    rows: list[dict[str, Any]] = []
-    now_dt = datetime.now(timezone.utc)
+        rows: list[dict[str, Any]] = []
+        now_dt = datetime.now(timezone.utc)
 
-    for dom, org in orgs.items():
-        threads = list(org["threads"].values())
-        stakeholders = list(org["stakeholders"].values())
-        if not threads or not stakeholders:
-            continue
+        for dom, org in orgs.items():
+            threads = list(org["threads"].values())
+            stakeholders = list(org["stakeholders"].values())
+            if not threads or not stakeholders:
+                continue
 
         topics = summarize_topics(org["subjects"])
         last_dt = parse_iso(str(org["last_message_at"]))
@@ -948,29 +949,33 @@ async def generate_queue(payload: QueuePayload) -> dict[str, Any]:
             }
         )
 
-    rows.sort(
-        key=lambda r: (
-            0 if r.get("auto_status") == "pending" else 1,
-            -int(r.get("followup_score", 0)),
-            -parse_iso(str(r.get("last_message_at", ""))).timestamp(),
+        rows.sort(
+            key=lambda r: (
+                0 if r.get("auto_status") == "pending" else 1,
+                -int(r.get("followup_score", 0)),
+                -parse_iso(str(r.get("last_message_at", ""))).timestamp(),
+            )
         )
-    )
 
-    save_queue_rows(user_email, rows)
-    saved_rows = load_queue_rows(user_email)
+        save_queue_rows(user_email, rows)
+        saved_rows = load_queue_rows(user_email)
 
-    return {
-        "ok": True,
-        "summary": {
-            "organizations": len(saved_rows),
-            "messages_scanned": len(ids),
-            "connected_email": gmail_conn.connected_email,
-            "pending": sum(1 for r in saved_rows if r.get("status") == "pending"),
-            "approved": sum(1 for r in saved_rows if r.get("status") == "approved"),
-            "rejected": sum(1 for r in saved_rows if r.get("status") == "rejected"),
-        },
-        "rows": saved_rows,
-    }
+        return {
+            "ok": True,
+            "summary": {
+                "organizations": len(saved_rows),
+                "messages_scanned": len(ids),
+                "connected_email": gmail_conn.connected_email,
+                "pending": sum(1 for r in saved_rows if r.get("status") == "pending"),
+                "approved": sum(1 for r in saved_rows if r.get("status") == "approved"),
+                "rejected": sum(1 for r in saved_rows if r.get("status") == "rejected"),
+            },
+            "rows": saved_rows,
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"queue_generate_failed: {type(exc).__name__}: {exc}") from exc
 
 
 @app.post("/api/drafts/generate")
