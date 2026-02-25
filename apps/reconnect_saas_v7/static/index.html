@@ -336,9 +336,22 @@
     }
 
     async function waitForQueueJob(email, jobId) {
+      let lastOrganizations = -1;
       while (true) {
         const st = await api(`/api/queue/generate-status?email=${encodeURIComponent(email)}&job_id=${encodeURIComponent(jobId)}`);
         if (st.message) $('loading_text').textContent = st.message;
+        const orgs = Number((st.summary || {}).organizations || 0);
+        const processed = Number((st.summary || {}).messages_processed || 0);
+        const total = Number((st.summary || {}).messages_total || 0);
+        if (total > 0) {
+          $('queue_msg').textContent = `Generating... ${orgs} orgs, ${processed}/${total} messages`;
+        } else {
+          $('queue_msg').textContent = `Generating... ${orgs} orgs`;
+        }
+        if (orgs !== lastOrganizations && orgs > 0) {
+          lastOrganizations = orgs;
+          await refreshQueue();
+        }
         if (st.status === 'done') return st;
         if (st.status === 'failed') throw new Error(st.error || st.message || 'generation_failed');
         await new Promise((r) => setTimeout(r, 2000));

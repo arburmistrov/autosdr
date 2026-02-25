@@ -726,6 +726,83 @@ def set_queue_job_state(key: str, **updates: Any) -> None:
     job.update(updates)
 
 
+def build_rows_from_orgs(orgs: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    now_dt = datetime.now(timezone.utc)
+    for dom, org in orgs.items():
+        threads = list(org["threads"].values())
+        stakeholders = list(org["stakeholders"].values())
+        if not threads or not stakeholders:
+            continue
+        if all(is_generic_localpart(str(s.get("email", ""))) for s in stakeholders):
+            continue
+
+        topics = summarize_topics(org["subjects"])
+        last_dt = parse_iso(str(org["last_message_at"]))
+        days_since_last = max(0, (now_dt - last_dt).days)
+        primary = org["primary_contact_email"]
+        if not primary:
+            top_st = sorted(stakeholders, key=lambda x: (int(x["touches"]), x["last_message_at"]), reverse=True)[0]
+            primary = str(top_st["email"])
+            org["primary_contact_name"] = str(top_st.get("name", ""))
+
+        subject_noise = sum(1 for t in topics if has_noise_subject(t))
+        business_score = text_relevance_score(topics, org["snippets"], len(stakeholders), days_since_last)
+        followup_score = max(0, min(100, business_score + min(10, len(threads))))
+        auto_status = "pending"
+        reasons: list[str] = []
+        if subject_noise >= 2:
+            auto_status = "auto_reject"
+            reasons.append("newsletter_or_system_subject")
+        if all(is_noise_sender(s["email"]) for s in stakeholders):
+            auto_status = "auto_reject"
+            reasons.append("automated_senders_only")
+        if any(is_generic_localpart(s["email"]) for s in stakeholders) and len(stakeholders) <= 1:
+            auto_status = "auto_reject"
+            reasons.append("generic_mailbox_only")
+        if followup_score < 45:
+            auto_status = "auto_reject"
+            reasons.append("low_relevance")
+
+        stakeholders_sorted = sorted(stakeholders, key=lambda x: (int(x["touches"]), x["last_message_at"]), reverse=True)
+        threads_sorted = sorted(threads, key=lambda x: x["last_message_at"], reverse=True)
+        summary = (
+            f"{len(threads_sorted)} threads merged across {len(stakeholders_sorted)} stakeholders. "
+            f"Top topics: {', '.join(topics) if topics else 'n/a'}."
+        )
+        rows.append(
+            {
+                "organization_domain": dom,
+                "organization_name": org["organization_name"],
+                "primary_contact_email": primary,
+                "primary_contact_name": org.get("primary_contact_name", ""),
+                "threads_count": len(threads_sorted),
+                "message_count": int(org["message_count"]),
+                "last_message_at": org["last_message_at"],
+                "days_since_last": days_since_last,
+                "followup_score": followup_score,
+                "business_score": business_score,
+                "auto_status": auto_status,
+                "auto_reasons": reasons,
+                "summary": summary,
+                "topics": topics,
+                "stakeholders": stakeholders_sorted[:12],
+                "threads": threads_sorted[:15],
+                "last_messages": org["snippets"][:5],
+                "status": "pending",
+            }
+        )
+
+    rows.sort(
+        key=lambda r: (
+            0 if r.get("auto_status") == "pending" else 1,
+            -int(r.get("followup_score", 0)),
+            -parse_iso(str(r.get("last_message_at", ""))).timestamp(),
+        )
+    )
+    return rows
+
+
 async def fetch_gmail_message_ids(
     client: httpx.AsyncClient,
     access_token: str,
@@ -856,7 +933,12 @@ async def generate_queue_result(
 
         access_token = await ensure_valid_access_token(gmail_conn)
         if job_key:
-            set_queue_job_state(job_key, status="running", message="Scanning mailbox range 2015 -> today...")
+            set_queue_job_state(
+                job_key,
+                status="running",
+                message="Scanning mailbox range 2015 -> today...",
+                result_summary={"organizations": 0, "messages_processed": 0, "messages_total": 0},
+            )
 
         async with httpx.AsyncClient(timeout=40) as client:
             base_q = "-in:chats -category:promotions -category:social -category:updates after:2015/01/01"
@@ -908,7 +990,15 @@ async def generate_queue_result(
             for i in range(0, len(mids), batch_size):
                 if job_key and mids:
                     pct = int((i / max(1, len(mids))) * 100)
-                    set_queue_job_state(job_key, message=f"Reading Gmail messages... {pct}%")
+                    set_queue_job_state(
+                        job_key,
+                        message=f"Reading Gmail messages... {pct}%",
+                        result_summary={
+                            "organizations": len(orgs),
+                            "messages_processed": min(i, len(mids)),
+                            "messages_total": len(mids),
+                        },
+                    )
                 batch = mids[i : i + batch_size]
                 fetched = await asyncio.gather(*(fetch_one(mid) for mid in batch), return_exceptions=True)
                 for msg in fetched:
@@ -1015,79 +1105,21 @@ async def generate_queue_result(
                                 if snippet:
                                     thread["sample"] = snippet
 
-        rows: list[dict[str, Any]] = []
-        now_dt = datetime.now(timezone.utc)
-        for dom, org in orgs.items():
-            threads = list(org["threads"].values())
-            stakeholders = list(org["stakeholders"].values())
-            if not threads or not stakeholders:
-                continue
-            if all(is_generic_localpart(str(s.get("email", ""))) for s in stakeholders):
-                continue
+                # Persist partial queue periodically so UI can show results in portions.
+                if (i // batch_size) % 4 == 0:
+                    partial_rows = build_rows_from_orgs(orgs)
+                    save_queue_rows(user_email, partial_rows)
+                    if job_key:
+                        set_queue_job_state(
+                            job_key,
+                            result_summary={
+                                "organizations": len(partial_rows),
+                                "messages_processed": min(i + len(batch), len(mids)),
+                                "messages_total": len(mids),
+                            },
+                        )
 
-            topics = summarize_topics(org["subjects"])
-            last_dt = parse_iso(str(org["last_message_at"]))
-            days_since_last = max(0, (now_dt - last_dt).days)
-            primary = org["primary_contact_email"]
-            if not primary:
-                top_st = sorted(stakeholders, key=lambda x: (int(x["touches"]), x["last_message_at"]), reverse=True)[0]
-                primary = str(top_st["email"])
-                org["primary_contact_name"] = str(top_st.get("name", ""))
-
-            subject_noise = sum(1 for t in topics if has_noise_subject(t))
-            business_score = text_relevance_score(topics, org["snippets"], len(stakeholders), days_since_last)
-            followup_score = max(0, min(100, business_score + min(10, len(threads))))
-            auto_status = "pending"
-            reasons: list[str] = []
-            if subject_noise >= 2:
-                auto_status = "auto_reject"
-                reasons.append("newsletter_or_system_subject")
-            if all(is_noise_sender(s["email"]) for s in stakeholders):
-                auto_status = "auto_reject"
-                reasons.append("automated_senders_only")
-            if any(is_generic_localpart(s["email"]) for s in stakeholders) and len(stakeholders) <= 1:
-                auto_status = "auto_reject"
-                reasons.append("generic_mailbox_only")
-            if followup_score < 45:
-                auto_status = "auto_reject"
-                reasons.append("low_relevance")
-
-            stakeholders_sorted = sorted(stakeholders, key=lambda x: (int(x["touches"]), x["last_message_at"]), reverse=True)
-            threads_sorted = sorted(threads, key=lambda x: x["last_message_at"], reverse=True)
-            summary = (
-                f"{len(threads_sorted)} threads merged across {len(stakeholders_sorted)} stakeholders. "
-                f"Top topics: {', '.join(topics) if topics else 'n/a'}."
-            )
-            rows.append(
-                {
-                    "organization_domain": dom,
-                    "organization_name": org["organization_name"],
-                    "primary_contact_email": primary,
-                    "primary_contact_name": org.get("primary_contact_name", ""),
-                    "threads_count": len(threads_sorted),
-                    "message_count": int(org["message_count"]),
-                    "last_message_at": org["last_message_at"],
-                    "days_since_last": days_since_last,
-                    "followup_score": followup_score,
-                    "business_score": business_score,
-                    "auto_status": auto_status,
-                    "auto_reasons": reasons,
-                    "summary": summary,
-                    "topics": topics,
-                    "stakeholders": stakeholders_sorted[:12],
-                    "threads": threads_sorted[:15],
-                    "last_messages": org["snippets"][:5],
-                    "status": "pending",
-                }
-            )
-
-        rows.sort(
-            key=lambda r: (
-                0 if r.get("auto_status") == "pending" else 1,
-                -int(r.get("followup_score", 0)),
-                -parse_iso(str(r.get("last_message_at", ""))).timestamp(),
-            )
-        )
+        rows = build_rows_from_orgs(orgs)
         save_queue_rows(user_email, rows)
         saved_rows = load_queue_rows(user_email)
         out = {
