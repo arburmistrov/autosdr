@@ -183,6 +183,7 @@ class DraftUpdatePayload(BaseModel):
     organization_domain: str
     to: EmailStr
     final_text: str
+    subject_text: Optional[str] = None
 
 
 class DraftDecisionPayload(BaseModel):
@@ -277,6 +278,7 @@ def init_db() -> None:
               primary_contact_name TEXT,
               context_summary TEXT,
               topics_json TEXT NOT NULL,
+              subject_text TEXT NOT NULL DEFAULT 'Quick reconnect',
               draft_text TEXT NOT NULL,
               final_text TEXT NOT NULL,
               status TEXT NOT NULL DEFAULT 'pending',
@@ -303,6 +305,7 @@ def init_db() -> None:
               organization_name TEXT NOT NULL,
               to_email TEXT NOT NULL,
               token TEXT NOT NULL,
+              subject_text TEXT NOT NULL DEFAULT 'Quick reconnect',
               draft_text TEXT NOT NULL,
               sent_count INTEGER NOT NULL DEFAULT 0,
               max_sends INTEGER NOT NULL,
@@ -318,6 +321,14 @@ def init_db() -> None:
         )
         try:
             conn.execute("ALTER TABLE oauth_states ADD COLUMN redirect_uri TEXT")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE followup_drafts ADD COLUMN subject_text TEXT NOT NULL DEFAULT 'Quick reconnect'")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE campaign_targets ADD COLUMN subject_text TEXT NOT NULL DEFAULT 'Quick reconnect'")
         except sqlite3.OperationalError:
             pass
 
@@ -865,7 +876,7 @@ def load_followup_drafts(user_email: str) -> list[dict[str, Any]]:
             """
             SELECT
               organization_domain, organization_name, to_email, primary_contact_name,
-              context_summary, topics_json, draft_text, final_text, status, updated_at
+              context_summary, topics_json, subject_text, draft_text, final_text, status, updated_at
             FROM followup_drafts
             WHERE user_email=?
             ORDER BY
@@ -893,6 +904,7 @@ def load_followup_drafts(user_email: str) -> list[dict[str, Any]]:
                 "primary_contact_name": str(r["primary_contact_name"] or ""),
                 "summary": str(r["context_summary"] or ""),
                 "topics": topics,
+                "subject": str(r["subject_text"] or "Quick reconnect"),
                 "draft": str(r["draft_text"] or ""),
                 "final_text": str(r["final_text"] or ""),
                 "status": str(r["status"] or "pending"),
@@ -916,9 +928,10 @@ def drafts_summary(drafts: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def campaign_subject(organization: str, send_index: int, token: str) -> str:
+def campaign_subject(organization: str, send_index: int, token: str, initial_subject: str) -> str:
     if send_index <= 0:
-        return f"[RC-{token}] Quick check-in with {organization}"
+        base = (initial_subject or "").strip() or "Quick reconnect"
+        return f"[RC-{token}] {base}"
     variants = [
         "Following up on my previous note",
         "Sharing one more idea for your team",
@@ -1053,7 +1066,7 @@ async def process_active_campaigns_once() -> None:
             targets = conn.execute(
                 """
                 SELECT organization_domain,organization_name,to_email,token,draft_text,sent_count,max_sends,next_send_at,
-                       replied_at,pipedrive_deal_id,status
+                       replied_at,pipedrive_deal_id,status,subject_text
                 FROM campaign_targets
                 WHERE campaign_id=? AND status='active'
                 """,
@@ -1074,6 +1087,7 @@ async def process_active_campaigns_once() -> None:
             replied_at = str(t["replied_at"] or "")
             deal_id = str(t["pipedrive_deal_id"] or "")
             status = str(t["status"] or "active")
+            subject_text = str(t["subject_text"] or "Quick reconnect")
             if status != "active":
                 continue
 
@@ -1111,7 +1125,7 @@ async def process_active_campaigns_once() -> None:
             if next_send_at > now:
                 continue
 
-            subject = campaign_subject(org_name, sent_count, token)
+            subject = campaign_subject(org_name, sent_count, token, subject_text)
             body = campaign_body(draft_text, sent_count)
             try:
                 await gmail_send_plain_message(access_token, to_email, subject, body)
@@ -1727,13 +1741,18 @@ def generate_drafts(payload: DraftPayload) -> dict[str, Any]:
                 """
                 INSERT INTO followup_drafts(
                   user_email, organization_domain, organization_name, to_email, primary_contact_name,
-                  context_summary, topics_json, draft_text, final_text, status, created_at, updated_at
-                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+                  context_summary, topics_json, subject_text, draft_text, final_text, status, created_at, updated_at
+                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
                 ON CONFLICT(user_email, organization_domain, to_email) DO UPDATE SET
                   organization_name=excluded.organization_name,
                   primary_contact_name=excluded.primary_contact_name,
                   context_summary=excluded.context_summary,
                   topics_json=excluded.topics_json,
+                  subject_text=CASE
+                    WHEN followup_drafts.subject_text IS NULL OR followup_drafts.subject_text=''
+                    THEN excluded.subject_text
+                    ELSE followup_drafts.subject_text
+                  END,
                   draft_text=excluded.draft_text,
                   final_text=CASE
                     WHEN followup_drafts.final_text IS NULL OR followup_drafts.final_text=''
@@ -1751,6 +1770,7 @@ def generate_drafts(payload: DraftPayload) -> dict[str, Any]:
                     str(r.get("primary_contact_name") or ""),
                     summary,
                     topics_json,
+                    "Quick reconnect",
                     body,
                     body,
                     "pending",
@@ -1803,14 +1823,17 @@ def update_draft_text(payload: DraftUpdatePayload) -> dict[str, Any]:
     org_domain = payload.organization_domain.strip().lower()
     to_email = str(payload.to).strip().lower()
     final_text = payload.final_text.strip()
+    subject_text: Optional[str] = payload.subject_text
+    if subject_text is not None:
+        subject_text = subject_text.strip() or "Quick reconnect"
     with db_conn() as conn:
         cur = conn.execute(
             """
             UPDATE followup_drafts
-            SET final_text=?, updated_at=?
+            SET final_text=?, subject_text=COALESCE(?, subject_text), updated_at=?
             WHERE user_email=? AND organization_domain=? AND to_email=?
             """,
-            (final_text, now_iso(), user_email, org_domain, to_email),
+            (final_text, subject_text, now_iso(), user_email, org_domain, to_email),
         )
     if cur.rowcount < 1:
         raise HTTPException(status_code=404, detail="draft_not_found")
@@ -1876,14 +1899,15 @@ def start_campaign(payload: CampaignStartPayload) -> dict[str, Any]:
             to_email = str(d.get("to") or "").strip().lower()
             token = secrets.token_hex(4).upper()
             final_text = str(d.get("final_text") or d.get("draft") or "").strip()
+            subject_text = str(d.get("subject") or "Quick reconnect").strip() or "Quick reconnect"
             if not org_domain or not to_email or not final_text:
                 continue
             conn.execute(
                 """
                 INSERT INTO campaign_targets(
-                  campaign_id,user_email,organization_domain,organization_name,to_email,token,draft_text,
+                  campaign_id,user_email,organization_domain,organization_name,to_email,token,subject_text,draft_text,
                   sent_count,max_sends,next_send_at,status,updated_at
-                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
                 (
                     campaign_id,
@@ -1892,6 +1916,7 @@ def start_campaign(payload: CampaignStartPayload) -> dict[str, Any]:
                     org_name,
                     to_email,
                     token,
+                    subject_text,
                     final_text,
                     0,
                     1 + followups_count,

@@ -261,6 +261,9 @@
           <div class="muted">To: ${esc(d.to)}</div>
           <div class="muted">Context: ${esc(d.summary || '')}</div>
           <div class="muted" style="margin-top:6px;">Status: ${statusPill(d.status || 'pending')}</div>
+          <label style="margin-top:8px;">Subject</label>
+          <input id="draft_subject_${idx}" value="${esc(d.subject || 'Quick reconnect')}" />
+          <label style="margin-top:8px;">Body</label>
           <textarea class="draft-box" id="draft_box_${idx}"></textarea>
           <div class="btns" style="margin-top:8px;">
             <button data-draft-action="save">Save text</button>
@@ -272,6 +275,8 @@
       draftRows.forEach((d, idx) => {
         const el = $(`draft_box_${idx}`);
         if (el) el.value = d.final_text || d.draft || '';
+        const sub = $(`draft_subject_${idx}`);
+        if (sub) sub.value = d.subject || 'Quick reconnect';
       });
     }
 
@@ -662,12 +667,13 @@
       const org = box.getAttribute('data-org');
       const to = box.getAttribute('data-to');
       const txt = box.querySelector('textarea')?.value || '';
+      const subject = box.querySelector('input')?.value || 'Quick reconnect';
       const s = load();
       if (!s.email || !org || !to) return;
       try {
         await api('/api/drafts/update', {
           method:'POST',
-          body: JSON.stringify({ email: s.email, organization_domain: org, to, final_text: txt }),
+          body: JSON.stringify({ email: s.email, organization_domain: org, to, final_text: txt, subject_text: subject }),
         });
         if (action === 'approve' || action === 'reject') {
           const status = action === 'approve' ? 'approved' : 'rejected';
