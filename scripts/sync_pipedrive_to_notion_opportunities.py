@@ -301,52 +301,65 @@ def summarize_deal(
     currency: str,
     expected_close: Optional[dt.date],
     docs_status: str,
+    days_in_stage: int,
+    sla_color: str,
+    product_guess: List[str],
     notes: List[dict],
     activities: List[dict],
 ) -> str:
     client = company_name or contact_name or "Unknown client"
     owner = owner_name or "Unassigned"
     stage = stage_name or "Unknown stage"
-    parts = [
-        f"Client: {client}.",
-        f"Deal: {title}.",
-        f"Now: {pipeline_name} -> {stage}, owner {owner}.",
-    ]
-    if deal_value not in (None, "", 0, "0"):
-        try:
-            amt = int(float(str(deal_value)))
-            cur = (currency or "").upper().strip()
-            parts.append(f"Budget: {amt:,} {cur}".strip() + ".")
-        except Exception:
-            pass
-    if expected_close:
-        parts.append(f"Target close: {expected_close.isoformat()}.")
-    parts.append(f"Docs: {docs_status}.")
 
-    done = sum(1 for a in activities if truthy(a.get("done")))
-    open_cnt = sum(1 for a in activities if not truthy(a.get("done")))
-    if activities:
+    product = ", ".join(product_guess[:2]) if product_guess else "Custom dev"
+
+    # Ask: best short hint from latest note/activity, fallback to title.
+    ask = ""
+    for n in sorted(notes, key=lambda x: str(x.get("update_time") or x.get("add_time") or ""), reverse=True):
+        txt = clean_text(n.get("content") or "")
+        if txt:
+            ask = truncate_text(txt, 90)
+            break
+    if not ask and activities:
         latest = sorted(
             activities,
             key=lambda a: str(a.get("update_time") or a.get("add_time") or ""),
             reverse=True,
         )[0]
-        latest_txt = clean_text(latest.get("subject") or latest.get("note") or latest.get("type") or "")
-        if latest_txt:
-            parts.append(f"Latest activity: {truncate_text(latest_txt, 120)}.")
-        parts.append(f"Activities: {done} done / {open_cnt} open.")
+        ask = truncate_text(clean_text(latest.get("subject") or latest.get("note") or latest.get("type") or ""), 90)
+    if not ask:
+        ask = truncate_text(title, 90)
 
-    note_texts = []
-    for n in sorted(notes, key=lambda x: str(x.get("update_time") or x.get("add_time") or ""), reverse=True):
-        txt = clean_text(n.get("content") or "")
-        if txt:
-            note_texts.append(txt)
-        if len(note_texts) >= 2:
-            break
-    if note_texts:
-        parts.append(f"Context: {truncate_text(' | '.join(note_texts), 300)}")
+    # Next step: first open activity with nearest date.
+    open_acts = [a for a in activities if not truthy(a.get("done"))]
+    next_step = "Follow-up with client"
+    if open_acts:
+        open_acts_sorted = sorted(open_acts, key=lambda a: str(a.get("due_date") or a.get("add_time") or "9999-12-31"))
+        nxt = open_acts_sorted[0]
+        subj = clean_text(nxt.get("subject") or nxt.get("type") or "Follow-up")
+        due = str(nxt.get("due_date") or "").strip()
+        next_step = truncate_text(f"{subj} {f'(due {due})' if due else ''}".strip(), 70)
 
-    return " ".join(parts)
+    risk_parts = [sla_color, docs_status]
+    if deal_value not in (None, "", 0, "0"):
+        try:
+            amt = int(float(str(deal_value)))
+            cur = (currency or "").upper().strip()
+            risk_parts.append(f"{amt:,} {cur}".strip())
+        except Exception:
+            pass
+    if expected_close:
+        risk_parts.append(f"close {expected_close.isoformat()}")
+    risk = " | ".join([p for p in risk_parts if p])
+
+    return (
+        f"Client: {client} ({owner})\n"
+        f"Product: {product}\n"
+        f"Ask: {ask}\n"
+        f"Stage: {pipeline_name} -> {stage} ({days_in_stage}d)\n"
+        f"Next: {next_step}\n"
+        f"Risk: {risk}"
+    )
 
 
 def resolve_doc_links_from_notes(doc_hints: dict, notes: List[dict]) -> Dict[str, str]:
@@ -1049,6 +1062,9 @@ def run_sync(args):
                 currency=currency,
                 expected_close=expected_close,
                 docs_status=docs_status,
+                days_in_stage=days_in_stage,
+                sla_color=sla_color,
+                product_guess=product_guess,
                 notes=notes,
                 activities=activities,
             )
