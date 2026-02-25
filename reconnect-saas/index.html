@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Reconnect Campaign SaaS</title>
+  <style>
+    :root {
+      --bg:#eef4ef;
+      --card:#ffffff;
+      --line:#d2ddd4;
+      --text:#16231b;
+      --muted:#5f7065;
+      --brand:#0d7a6b;
+      --danger:#b94a48;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 0% 0%, #d7e9dc 0%, transparent 35%),
+        radial-gradient(circle at 100% 100%, #f4e4d7 0%, transparent 35%),
+        var(--bg);
+    }
+    .wrap { max-width: 980px; margin: 26px auto; padding: 0 16px 28px; }
+    .hero { margin-bottom: 14px; }
+    h1 { margin: 0 0 8px; font-size: 36px; line-height: 1.1; }
+    .sub { color: var(--muted); font-size: 16px; }
+    .grid { display: grid; gap: 12px; grid-template-columns: 1fr; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+    }
+    .card h2 { margin: 0 0 10px; font-size: 20px; }
+    .row { display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 10px; }
+    @media (min-width: 760px) {
+      .row.cols2 { grid-template-columns: 1fr 1fr; }
+    }
+    label { display:block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+    input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 11px;
+      font: inherit;
+    }
+    .btns { display:flex; gap:8px; flex-wrap:wrap; }
+    button {
+      border:1px solid var(--line);
+      border-radius:10px;
+      padding:10px 12px;
+      font: inherit;
+      cursor: pointer;
+      background:#fff;
+    }
+    button.primary { background: var(--brand); border-color: var(--brand); color:#fff; }
+    button.danger { background: var(--danger); border-color: var(--danger); color:#fff; }
+    .pill {
+      display:inline-block;
+      border:1px solid var(--line);
+      border-radius:999px;
+      padding:4px 9px;
+      font-size:12px;
+      color:var(--muted);
+      margin-right:6px;
+    }
+    .ok { color:#0b7a63; font-weight:600; }
+    .warn { color:#8c5f18; font-weight:600; }
+    .hidden { display:none; }
+    .divider { height: 1px; background: var(--line); margin: 10px 0; }
+    .kvs { display:grid; grid-template-columns: 170px 1fr; gap:8px; font-size:14px; }
+    .muted { color: var(--muted); }
+    table { width:100%; border-collapse: collapse; }
+    th,td { border-bottom:1px solid var(--line); padding:8px; text-align:left; font-size:13px; }
+    th { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <h1>Reconnect Campaign SaaS</h1>
+      <div class="sub">Step-by-step onboarding. No preloaded user mailbox data.</div>
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <h2>1) Create Workspace User</h2>
+        <div class="row cols2">
+          <div>
+            <label>Workspace Name</label>
+            <input id="workspace" placeholder="team-alpha" />
+          </div>
+          <div>
+            <label>User Name</label>
+            <input id="user_name" placeholder="Arseniy Burmistrov" />
+          </div>
+        </div>
+        <div class="row cols2">
+          <div>
+            <label>User Email (mailbox owner)</label>
+            <input id="user_email" placeholder="owner@company.com" type="email" />
+          </div>
+          <div>
+            <label>Role</label>
+            <input id="user_role" placeholder="Owner" value="Owner" />
+          </div>
+        </div>
+        <div class="btns">
+          <button class="primary" id="save_profile">Save user</button>
+          <button id="reset_profile">Reset</button>
+        </div>
+        <p id="profile_msg" class="muted"></p>
+      </section>
+
+      <section class="card">
+        <h2>2) Connect Integrations</h2>
+        <div>
+          <span class="pill">Gmail OAuth</span>
+          <span id="gmail_state" class="warn">Not connected</span>
+        </div>
+        <div style="margin-top:8px" class="btns">
+          <button id="connect_gmail" class="primary">Connect my Gmail</button>
+        </div>
+        <div class="divider"></div>
+        <div class="row cols2">
+          <div>
+            <label>Pipedrive Company Domain</label>
+            <input id="pd_domain" placeholder="acme" />
+          </div>
+          <div>
+            <label>Pipedrive API Token</label>
+            <input id="pd_token" type="password" placeholder="pdt_xxx" />
+          </div>
+        </div>
+        <div class="btns">
+          <button id="save_pipedrive" class="primary">Save Pipedrive</button>
+          <button id="clear_pipedrive">Disconnect Pipedrive</button>
+        </div>
+        <p id="integration_msg" class="muted"></p>
+      </section>
+
+      <section class="card">
+        <h2>3) Start Reconnect Pipeline</h2>
+        <div class="kvs">
+          <div class="muted">Workspace</div><div id="v_workspace">-</div>
+          <div class="muted">User</div><div id="v_user">-</div>
+          <div class="muted">Email</div><div id="v_email">-</div>
+          <div class="muted">Gmail</div><div id="v_gmail">Not connected</div>
+          <div class="muted">Pipedrive</div><div id="v_pd">Not connected</div>
+        </div>
+        <div class="btns" style="margin-top:10px">
+          <button class="primary" id="generate_btn" disabled>Generate approval queue</button>
+        </div>
+        <p id="pipeline_msg" class="muted">To continue: save user, connect Gmail, and add Pipedrive.</p>
+      </section>
+
+      <section class="card hidden" id="approval_card">
+        <h2>Approval Queue (Organization-Level)</h2>
+        <p class="muted">This is where generated organizations will appear for approve/reject after scan completes.</p>
+        <table>
+          <thead><tr><th>Organization</th><th>Primary Contact</th><th>Status</th></tr></thead>
+          <tbody id="approval_rows"></tbody>
+        </table>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const storeKey = 'reconnect_saas_onboarding_v1';
+    const $ = (id) => document.getElementById(id);
+
+    function loadState() {
+      try { return JSON.parse(localStorage.getItem(storeKey) || '{}'); }
+      catch { return {}; }
+    }
+    function saveState(state) {
+      localStorage.setItem(storeKey, JSON.stringify(state));
+    }
+
+    function refresh() {
+      const s = loadState();
+      $('workspace').value = s.workspace || '';
+      $('user_name').value = s.user_name || '';
+      $('user_email').value = s.user_email || '';
+      $('user_role').value = s.user_role || 'Owner';
+      $('pd_domain').value = s.pd_domain || '';
+
+      const gmailConnected = !!s.gmail_connected;
+      const pdConnected = !!(s.pd_domain && s.pd_token_masked);
+      $('gmail_state').textContent = gmailConnected ? 'Connected' : 'Not connected';
+      $('gmail_state').className = gmailConnected ? 'ok' : 'warn';
+
+      $('v_workspace').textContent = s.workspace || '-';
+      $('v_user').textContent = s.user_name || '-';
+      $('v_email').textContent = s.user_email || '-';
+      $('v_gmail').textContent = gmailConnected ? 'Connected' : 'Not connected';
+      $('v_pd').textContent = pdConnected ? `Connected (${s.pd_domain})` : 'Not connected';
+
+      const ready = !!(s.workspace && s.user_name && s.user_email && gmailConnected && pdConnected);
+      $('generate_btn').disabled = !ready;
+      $('pipeline_msg').textContent = ready
+        ? 'Ready. Click "Generate approval queue".'
+        : 'To continue: save user, connect Gmail, and add Pipedrive.';
+    }
+
+    $('save_profile').addEventListener('click', () => {
+      const s = loadState();
+      s.workspace = $('workspace').value.trim();
+      s.user_name = $('user_name').value.trim();
+      s.user_email = $('user_email').value.trim();
+      s.user_role = $('user_role').value.trim() || 'Owner';
+      saveState(s);
+      $('profile_msg').textContent = 'User saved.';
+      refresh();
+    });
+
+    $('reset_profile').addEventListener('click', () => {
+      localStorage.removeItem(storeKey);
+      $('profile_msg').textContent = 'Local onboarding state cleared.';
+      $('integration_msg').textContent = '';
+      $('pipeline_msg').textContent = 'To continue: save user, connect Gmail, and add Pipedrive.';
+      $('approval_card').classList.add('hidden');
+      refresh();
+    });
+
+    $('connect_gmail').addEventListener('click', () => {
+      const s = loadState();
+      if (!s.user_email) {
+        $('integration_msg').textContent = 'Save user email first.';
+        return;
+      }
+      s.gmail_connected = true;
+      saveState(s);
+      $('integration_msg').textContent = 'Gmail marked connected (OAuth backend endpoint to be wired next).';
+      refresh();
+    });
+
+    $('save_pipedrive').addEventListener('click', () => {
+      const domain = $('pd_domain').value.trim();
+      const token = $('pd_token').value.trim();
+      if (!domain || !token) {
+        $('integration_msg').textContent = 'Enter both Pipedrive domain and token.';
+        return;
+      }
+      const s = loadState();
+      s.pd_domain = domain;
+      s.pd_token_masked = token.slice(0, 4) + '***';
+      saveState(s);
+      $('pd_token').value = '';
+      $('integration_msg').textContent = 'Pipedrive saved (token masked in UI).';
+      refresh();
+    });
+
+    $('clear_pipedrive').addEventListener('click', () => {
+      const s = loadState();
+      delete s.pd_domain;
+      delete s.pd_token_masked;
+      saveState(s);
+      $('integration_msg').textContent = 'Pipedrive disconnected.';
+      refresh();
+    });
+
+    $('generate_btn').addEventListener('click', () => {
+      const s = loadState();
+      const rows = [
+        ['Example Corp', 'alice@example.com', 'pending'],
+        ['Sample Industries', 'bob@sample.io', 'pending']
+      ];
+      const tbody = $('approval_rows');
+      tbody.innerHTML = rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('');
+      $('approval_card').classList.remove('hidden');
+      $('pipeline_msg').textContent = `Queue generated for ${s.workspace}/${s.user_email}.`;
+    });
+
+    refresh();
+  </script>
+</body>
+</html>
