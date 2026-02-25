@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Reconnect Campaign SaaS</title>
+  <style>
+    :root {
+      --bg:#eef4ef;
+      --card:#ffffff;
+      --line:#d2ddd4;
+      --text:#16231b;
+      --muted:#5f7065;
+      --brand:#0d7a6b;
+      --danger:#b94a48;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 0% 0%, #d7e9dc 0%, transparent 35%),
+        radial-gradient(circle at 100% 100%, #f4e4d7 0%, transparent 35%),
+        var(--bg);
+    }
+    .wrap { max-width: 980px; margin: 26px auto; padding: 0 16px 28px; }
+    .hero { margin-bottom: 14px; }
+    h1 { margin: 0 0 8px; font-size: 36px; line-height: 1.1; }
+    .sub { color: var(--muted); font-size: 16px; }
+    .grid { display: grid; gap: 12px; grid-template-columns: 1fr; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+    }
+    .card h2 { margin: 0 0 10px; font-size: 20px; }
+    .row { display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 10px; }
+    @media (min-width: 760px) {
+      .row.cols2 { grid-template-columns: 1fr 1fr; }
+    }
+    label { display:block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+    input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 11px;
+      font: inherit;
+    }
+    .btns { display:flex; gap:8px; flex-wrap:wrap; }
+    button {
+      border:1px solid var(--line);
+      border-radius:10px;
+      padding:10px 12px;
+      font: inherit;
+      cursor: pointer;
+      background:#fff;
+    }
+    button.primary { background: var(--brand); border-color: var(--brand); color:#fff; }
+    button.danger { background: var(--danger); border-color: var(--danger); color:#fff; }
+    .pill {
+      display:inline-block;
+      border:1px solid var(--line);
+      border-radius:999px;
+      padding:4px 9px;
+      font-size:12px;
+      color:var(--muted);
+      margin-right:6px;
+    }
+    .ok { color:#0b7a63; font-weight:600; }
+    .warn { color:#8c5f18; font-weight:600; }
+    .hidden { display:none; }
+    .divider { height: 1px; background: var(--line); margin: 10px 0; }
+    .kvs { display:grid; grid-template-columns: 170px 1fr; gap:8px; font-size:14px; }
+    .muted { color: var(--muted); }
+    table { width:100%; border-collapse: collapse; }
+    th,td { border-bottom:1px solid var(--line); padding:8px; text-align:left; font-size:13px; }
+    th { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <h1>Reconnect Campaign SaaS</h1>
+      <div class="sub">Step-by-step onboarding. No preloaded user mailbox data.</div>
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <h2>1) Create User</h2>
+        <div class="row cols2">
+          <div>
+            <label>Your Name</label>
+            <input id="user_name" placeholder="Arseniy Burmistrov" />
+          </div>
+          <div>
+            <label>Your Email</label>
+            <input id="user_email" placeholder="owner@company.com" type="email" />
+          </div>
+        </div>
+        <div class="btns">
+          <button class="primary" id="save_profile">Save user</button>
+          <button id="reset_profile">Reset</button>
+        </div>
+        <p id="profile_msg" class="muted"></p>
+      </section>
+
+      <section class="card">
+        <h2>2) Connect Integrations</h2>
+        <p class="muted" style="margin-top:0">
+          What to prepare:
+          Gmail uses OAuth (requires Google OAuth Client ID).
+          Pipedrive requires <code>company domain</code> and <code>API token</code>.
+        </p>
+        <div class="row">
+          <div>
+            <label>Google OAuth Client ID</label>
+            <input id="google_client_id" placeholder="1234567890-abc123.apps.googleusercontent.com" />
+          </div>
+        </div>
+        <div>
+          <span class="pill">Gmail OAuth</span>
+          <span id="gmail_state" class="warn">Not connected</span>
+        </div>
+        <div style="margin-top:8px" class="btns">
+          <button id="connect_gmail" class="primary">Connect my Gmail</button>
+          <button id="disconnect_gmail">Disconnect Gmail</button>
+        </div>
+        <div style="margin-top:8px" class="muted">
+          Gmail setup:
+          <br/>1) Google Cloud Console -> APIs & Services -> Credentials.
+          <br/>2) Create OAuth Client ID (Web application).
+          <br/>3) Authorized redirect URI: this page URL (same path).
+          <br/>4) Paste Client ID above, then click <strong>Connect my Gmail</strong>.
+        </div>
+        <div style="margin-top:8px" class="btns">
+          <button id="toggle_debug">Show OAuth debug</button>
+        </div>
+        <pre id="oauth_debug" class="hidden" style="font-size:12px; background:#f8fbf9; border:1px solid var(--line); border-radius:8px; padding:9px; overflow:auto;"></pre>
+        <div class="divider"></div>
+        <div class="row cols2">
+          <div>
+            <label>Pipedrive Company Domain</label>
+            <input id="pd_domain" placeholder="acme" />
+          </div>
+          <div>
+            <label>Pipedrive API Token</label>
+            <input id="pd_token" type="password" placeholder="pdt_xxx" />
+          </div>
+        </div>
+        <div class="btns">
+          <button id="save_pipedrive" class="primary">Save Pipedrive</button>
+          <button id="clear_pipedrive">Disconnect Pipedrive</button>
+        </div>
+        <div style="margin-top:8px" class="muted">
+          Where to find Pipedrive values:
+          <br/>1) Open Pipedrive URL like <code>https://acme.pipedrive.com</code> -> domain is <code>acme</code>.
+          <br/>2) In Pipedrive go to <strong>Personal preferences -> API</strong>.
+          <br/>3) Copy <strong>API Token</strong> and paste it above.
+        </div>
+        <p id="integration_msg" class="muted"></p>
+      </section>
+
+      <section class="card">
+        <h2>3) Start Reconnect Pipeline</h2>
+        <div class="kvs">
+          <div class="muted">User</div><div id="v_user">-</div>
+          <div class="muted">Email</div><div id="v_email">-</div>
+          <div class="muted">Gmail</div><div id="v_gmail">Not connected</div>
+          <div class="muted">Pipedrive</div><div id="v_pd">Not connected</div>
+        </div>
+        <div class="btns" style="margin-top:10px">
+          <button class="primary" id="generate_btn" disabled>Generate approval queue</button>
+        </div>
+        <p id="pipeline_msg" class="muted">To continue: save user, connect Gmail, and add Pipedrive.</p>
+      </section>
+
+      <section class="card hidden" id="approval_card">
+        <h2>Approval Queue (Organization-Level)</h2>
+        <p class="muted">This is where generated organizations will appear for approve/reject after scan completes.</p>
+        <table>
+          <thead><tr><th>Organization</th><th>Primary Contact</th><th>Status</th></tr></thead>
+          <tbody id="approval_rows"></tbody>
+        </table>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const storeKey = 'reconnect_saas_onboarding_v1';
+    const $ = (id) => document.getElementById(id);
+
+    function loadState() {
+      try { return JSON.parse(localStorage.getItem(storeKey) || '{}'); }
+      catch { return {}; }
+    }
+    function saveState(state) {
+      localStorage.setItem(storeKey, JSON.stringify(state));
+    }
+
+    function deriveWorkspaceFromEmail(email) {
+      const v = String(email || '').trim().toLowerCase();
+      if (!v.includes('@')) return 'default';
+      return v.split('@')[1].replace(/[^a-z0-9.-]/g, '-') || 'default';
+    }
+
+    function refresh() {
+      const s = loadState();
+      $('user_name').value = s.user_name || '';
+      $('user_email').value = s.user_email || '';
+      $('pd_domain').value = s.pd_domain || '';
+      $('google_client_id').value = s.google_client_id || '';
+
+      const gmailConnected = !!s.gmail_connected;
+      const pdConnected = !!(s.pd_domain && s.pd_token_masked);
+      $('gmail_state').textContent = gmailConnected ? 'Connected' : 'Not connected';
+      $('gmail_state').className = gmailConnected ? 'ok' : 'warn';
+
+      $('v_user').textContent = s.user_name || '-';
+      $('v_email').textContent = s.user_email || '-';
+      $('v_gmail').textContent = gmailConnected ? 'Connected' : 'Not connected';
+      $('v_pd').textContent = pdConnected ? `Connected (${s.pd_domain})` : 'Not connected';
+
+      const ready = !!(s.user_name && s.user_email && gmailConnected && pdConnected);
+      $('generate_btn').disabled = !ready;
+      $('pipeline_msg').textContent = ready
+        ? 'Ready. Click "Generate approval queue".'
+        : 'To continue: save user, connect Gmail, and add Pipedrive.';
+    }
+
+    $('save_profile').addEventListener('click', () => {
+      const s = loadState();
+      s.user_name = $('user_name').value.trim();
+      s.user_email = $('user_email').value.trim();
+      s.workspace = deriveWorkspaceFromEmail(s.user_email);
+      saveState(s);
+      $('profile_msg').textContent = 'User saved.';
+      refresh();
+    });
+
+    $('reset_profile').addEventListener('click', () => {
+      localStorage.removeItem(storeKey);
+      $('profile_msg').textContent = 'Local onboarding state cleared.';
+      $('integration_msg').textContent = '';
+      $('pipeline_msg').textContent = 'To continue: save user, connect Gmail, and add Pipedrive.';
+      $('approval_card').classList.add('hidden');
+      refresh();
+    });
+
+    $('connect_gmail').addEventListener('click', () => {
+      const s = loadState();
+      if (!s.user_email) {
+        $('integration_msg').textContent = 'Save user email first.';
+        return;
+      }
+      const clientId = ($('google_client_id').value || '').trim();
+      if (!clientId) {
+        $('integration_msg').textContent = 'Paste Google OAuth Client ID first.';
+        return;
+      }
+      s.google_client_id = clientId;
+      saveState(s);
+      const redirectUri = window.location.origin + window.location.pathname;
+      const scope = encodeURIComponent('https://www.googleapis.com/auth/gmail.readonly email profile');
+      const authUrl =
+        'https://accounts.google.com/o/oauth2/v2/auth' +
+        `?client_id=${encodeURIComponent(clientId)}` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+        '&response_type=token' +
+        `&scope=${scope}` +
+        `&login_hint=${encodeURIComponent(s.user_email)}` +
+        '&prompt=consent';
+      window.location.href = authUrl;
+    });
+
+    $('disconnect_gmail').addEventListener('click', () => {
+      const s = loadState();
+      delete s.gmail_connected;
+      delete s.gmail_access_token;
+      delete s.gmail_token_expires_at;
+      saveState(s);
+      $('integration_msg').textContent = 'Gmail disconnected.';
+      refresh();
+    });
+
+    $('save_pipedrive').addEventListener('click', () => {
+      const domain = $('pd_domain').value.trim();
+      const token = $('pd_token').value.trim();
+      if (!domain || !token) {
+        $('integration_msg').textContent = 'Enter both Pipedrive domain and token.';
+        return;
+      }
+      const s = loadState();
+      s.pd_domain = domain;
+      s.pd_token_masked = token.slice(0, 4) + '***';
+      saveState(s);
+      $('pd_token').value = '';
+      $('integration_msg').textContent = 'Pipedrive saved (token masked in UI).';
+      refresh();
+    });
+
+    $('clear_pipedrive').addEventListener('click', () => {
+      const s = loadState();
+      delete s.pd_domain;
+      delete s.pd_token_masked;
+      saveState(s);
+      $('integration_msg').textContent = 'Pipedrive disconnected.';
+      refresh();
+    });
+
+    $('generate_btn').addEventListener('click', () => {
+      const s = loadState();
+      const rows = [
+        ['Example Corp', 'alice@example.com', 'pending'],
+        ['Sample Industries', 'bob@sample.io', 'pending']
+      ];
+      const tbody = $('approval_rows');
+      tbody.innerHTML = rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('');
+      $('approval_card').classList.remove('hidden');
+      $('pipeline_msg').textContent = `Queue generated for ${s.user_email}.`;
+    });
+
+    $('toggle_debug').addEventListener('click', () => {
+      const box = $('oauth_debug');
+      box.classList.toggle('hidden');
+      $('toggle_debug').textContent = box.classList.contains('hidden') ? 'Show OAuth debug' : 'Hide OAuth debug';
+    });
+
+    function writeOAuthDebug(obj) {
+      const box = $('oauth_debug');
+      box.textContent = JSON.stringify(obj, null, 2);
+    }
+
+    (function readGoogleOAuthCallback() {
+      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const query = new URLSearchParams(window.location.search || '');
+      const accessToken = hash.get('access_token');
+      const oauthError = hash.get('error') || query.get('error');
+      const oauthErrorDescription = hash.get('error_description') || query.get('error_description');
+      writeOAuthDebug({
+        location: window.location.href,
+        has_access_token: !!accessToken,
+        hash_error: hash.get('error') || '',
+        hash_error_description: hash.get('error_description') || '',
+        query_error: query.get('error') || '',
+        query_error_description: query.get('error_description') || '',
+      });
+      if (oauthError) {
+        $('integration_msg').textContent = `Gmail OAuth error: ${oauthError}${oauthErrorDescription ? ' - ' + oauthErrorDescription : ''}`;
+        return;
+      }
+      const expiresIn = parseInt(hash.get('expires_in') || '0', 10);
+      if (!accessToken) return;
+      const s = loadState();
+      s.gmail_connected = true;
+      s.gmail_access_token = accessToken;
+      if (expiresIn > 0) {
+        s.gmail_token_expires_at = Date.now() + expiresIn * 1000;
+      }
+      saveState(s);
+      history.replaceState(null, '', window.location.pathname);
+      $('integration_msg').textContent = 'Gmail connected via OAuth.';
+    })();
+
+    refresh();
+  </script>
+</body>
+</html>
