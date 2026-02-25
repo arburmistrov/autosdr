@@ -773,10 +773,7 @@ async def generate_queue(payload: QueuePayload) -> dict[str, Any]:
 
                 msg_res = await client.get(
                     f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{mid}",
-                    params={
-                        "format": "metadata",
-                        "metadataHeaders": ["From", "To", "Cc", "Subject"],
-                    },
+                    params={"format": "metadata", "metadataHeaders": ["From", "To", "Cc", "Subject"]},
                     headers={"Authorization": f"Bearer {access_token}"},
                 )
                 if msg_res.status_code >= 400:
@@ -790,164 +787,158 @@ async def generate_queue(payload: QueuePayload) -> dict[str, Any]:
                 subject = str(headers.get("subject", "")).strip()
                 snippet = str(msg.get("snippet", "") or "").strip()
                 thread_id = str(msg.get("threadId", "") or "")
+                from_value = str(headers.get("from", ""))
+                from_emails = extract_emails(from_value)
+                from_email = from_emails[0] if from_emails else ""
+                all_emails = set(from_emails)
+                for h in ("to", "cc"):
+                    for addr in extract_emails(str(headers.get(h, ""))):
+                        all_emails.add(addr)
 
-            from_value = str(headers.get("from", ""))
-            from_emails = extract_emails(from_value)
-            from_email = from_emails[0] if from_emails else ""
-            all_emails = set(from_emails)
-            for h in ("to", "cc"):
-                for addr in extract_emails(str(headers.get(h, ""))):
-                    all_emails.add(addr)
+                ts = datetime.now(timezone.utc)
+                try:
+                    ts = datetime.fromtimestamp(int(msg.get("internalDate", "0")) / 1000, tz=timezone.utc)
+                except Exception:
+                    pass
+                iso_ts = ts.replace(microsecond=0).isoformat()
 
-            ts = datetime.now(timezone.utc)
-            try:
-                ts = datetime.fromtimestamp(int(msg.get("internalDate", "0")) / 1000, tz=timezone.utc)
-            except Exception:
-                pass
-            iso_ts = ts.replace(microsecond=0).isoformat()
-
-            domains: set[str] = set()
-            for em in all_emails:
-                if "@" not in em:
-                    continue
-                dom = em.split("@", 1)[1].lower()
-                if is_excluded_domain(dom, own_domain):
-                    continue
-                domains.add(dom)
-
-            if not domains:
-                continue
-
-            for dom in domains:
-                org = orgs.get(dom)
-                if org is None:
-                    org = {
-                        "organization_domain": dom,
-                        "organization_name": company_name_from_domain(dom),
-                        "stakeholders": {},
-                        "threads": {},
-                        "subjects": Counter(),
-                        "snippets": [],
-                        "message_count": 0,
-                        "last_message_at": "",
-                        "primary_contact_email": "",
-                        "primary_contact_name": "",
-                    }
-                    orgs[dom] = org
-
-                org["message_count"] += 1
-                if subject:
-                    org["subjects"][subject] += 1
-                if snippet and len(org["snippets"]) < 8:
-                    org["snippets"].append(snippet)
-
-                if not org["last_message_at"] or iso_ts > org["last_message_at"]:
-                    org["last_message_at"] = iso_ts
-                    if from_email.endswith("@" + dom):
-                        org["primary_contact_email"] = from_email
-                        org["primary_contact_name"] = guess_name_from_header(from_value, from_email)
-
+                domains: set[str] = set()
                 for em in all_emails:
-                    if "@" not in em or not em.endswith("@" + dom):
+                    if "@" not in em:
                         continue
-                    if is_noise_sender(em):
+                    dom = em.split("@", 1)[1].lower()
+                    if is_excluded_domain(dom, own_domain):
                         continue
-                    if em not in org["stakeholders"]:
-                        org["stakeholders"][em] = {
-                            "email": em,
-                            "name": "",
-                            "touches": 0,
-                            "last_message_at": iso_ts,
-                        }
-                    org["stakeholders"][em]["touches"] += 1
-                    if iso_ts > org["stakeholders"][em]["last_message_at"]:
-                        org["stakeholders"][em]["last_message_at"] = iso_ts
-                    if from_email == em and from_value:
-                        org["stakeholders"][em]["name"] = guess_name_from_header(from_value, em)
+                    domains.add(dom)
+                if not domains:
+                    continue
 
-                if thread_id:
-                    thread = org["threads"].get(thread_id)
-                    if thread is None:
-                        thread = {
-                            "thread_id": thread_id,
-                            "subject": subject,
-                            "last_message_at": iso_ts,
-                            "messages": 0,
-                            "sample": snippet,
+                for dom in domains:
+                    org = orgs.get(dom)
+                    if org is None:
+                        org = {
+                            "organization_domain": dom,
+                            "organization_name": company_name_from_domain(dom),
+                            "stakeholders": {},
+                            "threads": {},
+                            "subjects": Counter(),
+                            "snippets": [],
+                            "message_count": 0,
+                            "last_message_at": "",
+                            "primary_contact_email": "",
+                            "primary_contact_name": "",
                         }
-                        org["threads"][thread_id] = thread
-                    thread["messages"] += 1
-                    if iso_ts > thread["last_message_at"]:
-                        thread["last_message_at"] = iso_ts
-                        if subject:
-                            thread["subject"] = subject
-                        if snippet:
-                            thread["sample"] = snippet
+                        orgs[dom] = org
+
+                    org["message_count"] += 1
+                    if subject:
+                        org["subjects"][subject] += 1
+                    if snippet and len(org["snippets"]) < 8:
+                        org["snippets"].append(snippet)
+
+                    if not org["last_message_at"] or iso_ts > org["last_message_at"]:
+                        org["last_message_at"] = iso_ts
+                        if from_email.endswith("@" + dom):
+                            org["primary_contact_email"] = from_email
+                            org["primary_contact_name"] = guess_name_from_header(from_value, from_email)
+
+                    for em in all_emails:
+                        if "@" not in em or not em.endswith("@" + dom):
+                            continue
+                        if is_noise_sender(em):
+                            continue
+                        if em not in org["stakeholders"]:
+                            org["stakeholders"][em] = {
+                                "email": em,
+                                "name": "",
+                                "touches": 0,
+                                "last_message_at": iso_ts,
+                            }
+                        org["stakeholders"][em]["touches"] += 1
+                        if iso_ts > org["stakeholders"][em]["last_message_at"]:
+                            org["stakeholders"][em]["last_message_at"] = iso_ts
+                        if from_email == em and from_value:
+                            org["stakeholders"][em]["name"] = guess_name_from_header(from_value, em)
+
+                    if thread_id:
+                        thread = org["threads"].get(thread_id)
+                        if thread is None:
+                            thread = {
+                                "thread_id": thread_id,
+                                "subject": subject,
+                                "last_message_at": iso_ts,
+                                "messages": 0,
+                                "sample": snippet,
+                            }
+                            org["threads"][thread_id] = thread
+                        thread["messages"] += 1
+                        if iso_ts > thread["last_message_at"]:
+                            thread["last_message_at"] = iso_ts
+                            if subject:
+                                thread["subject"] = subject
+                            if snippet:
+                                thread["sample"] = snippet
 
         rows: list[dict[str, Any]] = []
         now_dt = datetime.now(timezone.utc)
-
         for dom, org in orgs.items():
             threads = list(org["threads"].values())
             stakeholders = list(org["stakeholders"].values())
             if not threads or not stakeholders:
                 continue
 
-        topics = summarize_topics(org["subjects"])
-        last_dt = parse_iso(str(org["last_message_at"]))
-        days_since_last = max(0, (now_dt - last_dt).days)
+            topics = summarize_topics(org["subjects"])
+            last_dt = parse_iso(str(org["last_message_at"]))
+            days_since_last = max(0, (now_dt - last_dt).days)
+            primary = org["primary_contact_email"]
+            if not primary:
+                top_st = sorted(stakeholders, key=lambda x: (int(x["touches"]), x["last_message_at"]), reverse=True)[0]
+                primary = str(top_st["email"])
+                org["primary_contact_name"] = str(top_st.get("name", ""))
 
-        primary = org["primary_contact_email"]
-        if not primary:
-            top_st = sorted(stakeholders, key=lambda x: (int(x["touches"]), x["last_message_at"]), reverse=True)[0]
-            primary = str(top_st["email"])
-            org["primary_contact_name"] = str(top_st.get("name", ""))
+            subject_noise = sum(1 for t in topics if has_noise_subject(t))
+            business_score = text_relevance_score(topics, org["snippets"], len(stakeholders), days_since_last)
+            followup_score = max(0, min(100, business_score + min(10, len(threads))))
+            auto_status = "pending"
+            reasons: list[str] = []
+            if subject_noise >= 2:
+                auto_status = "auto_reject"
+                reasons.append("newsletter_or_system_subject")
+            if all(is_noise_sender(s["email"]) for s in stakeholders):
+                auto_status = "auto_reject"
+                reasons.append("automated_senders_only")
+            if followup_score < 45:
+                auto_status = "auto_reject"
+                reasons.append("low_relevance")
 
-        subject_noise = sum(1 for t in topics if has_noise_subject(t))
-        business_score = text_relevance_score(topics, org["snippets"], len(stakeholders), days_since_last)
-        followup_score = max(0, min(100, business_score + min(10, len(threads))))
-        auto_status = "pending"
-        reasons: list[str] = []
-        if subject_noise >= 2:
-            auto_status = "auto_reject"
-            reasons.append("newsletter_or_system_subject")
-        if all(is_noise_sender(s["email"]) for s in stakeholders):
-            auto_status = "auto_reject"
-            reasons.append("automated_senders_only")
-        if followup_score < 45:
-            auto_status = "auto_reject"
-            reasons.append("low_relevance")
-
-        stakeholders_sorted = sorted(stakeholders, key=lambda x: (int(x["touches"]), x["last_message_at"]), reverse=True)
-        threads_sorted = sorted(threads, key=lambda x: x["last_message_at"], reverse=True)
-
-        summary = (
-            f"{len(threads_sorted)} threads merged across {len(stakeholders_sorted)} stakeholders. "
-            f"Top topics: {', '.join(topics) if topics else 'n/a'}."
-        )
-
-        rows.append(
-            {
-                "organization_domain": dom,
-                "organization_name": org["organization_name"],
-                "primary_contact_email": primary,
-                "primary_contact_name": org.get("primary_contact_name", ""),
-                "threads_count": len(threads_sorted),
-                "message_count": int(org["message_count"]),
-                "last_message_at": org["last_message_at"],
-                "days_since_last": days_since_last,
-                "followup_score": followup_score,
-                "business_score": business_score,
-                "auto_status": auto_status,
-                "auto_reasons": reasons,
-                "summary": summary,
-                "topics": topics,
-                "stakeholders": stakeholders_sorted[:12],
-                "threads": threads_sorted[:15],
-                "last_messages": org["snippets"][:5],
-                "status": "pending",
-            }
-        )
+            stakeholders_sorted = sorted(stakeholders, key=lambda x: (int(x["touches"]), x["last_message_at"]), reverse=True)
+            threads_sorted = sorted(threads, key=lambda x: x["last_message_at"], reverse=True)
+            summary = (
+                f"{len(threads_sorted)} threads merged across {len(stakeholders_sorted)} stakeholders. "
+                f"Top topics: {', '.join(topics) if topics else 'n/a'}."
+            )
+            rows.append(
+                {
+                    "organization_domain": dom,
+                    "organization_name": org["organization_name"],
+                    "primary_contact_email": primary,
+                    "primary_contact_name": org.get("primary_contact_name", ""),
+                    "threads_count": len(threads_sorted),
+                    "message_count": int(org["message_count"]),
+                    "last_message_at": org["last_message_at"],
+                    "days_since_last": days_since_last,
+                    "followup_score": followup_score,
+                    "business_score": business_score,
+                    "auto_status": auto_status,
+                    "auto_reasons": reasons,
+                    "summary": summary,
+                    "topics": topics,
+                    "stakeholders": stakeholders_sorted[:12],
+                    "threads": threads_sorted[:15],
+                    "last_messages": org["snippets"][:5],
+                    "status": "pending",
+                }
+            )
 
         rows.sort(
             key=lambda r: (
@@ -956,10 +947,8 @@ async def generate_queue(payload: QueuePayload) -> dict[str, Any]:
                 -parse_iso(str(r.get("last_message_at", ""))).timestamp(),
             )
         )
-
         save_queue_rows(user_email, rows)
         saved_rows = load_queue_rows(user_email)
-
         return {
             "ok": True,
             "summary": {
