@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: reconnect-saas-v7
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m uvicorn apps.reconnect_saas_v7.main:app --host 0.0.0.0 --port $PORT
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.10
+      - key: RECONNECT_SAAS_DB
+        value: /tmp/reconnect_saas_v7.db
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
