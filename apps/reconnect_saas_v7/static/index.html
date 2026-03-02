@@ -217,6 +217,9 @@
       if (msg === 'gmail_not_connected') {
         return 'Gmail не подключен. Сначала подключите Gmail для этого пользователя.';
       }
+      if (msg.startsWith('gmail_reconnect_required:')) {
+        return `Нужно переподключить Gmail для ${expectedEmail || 'этого пользователя'} один раз, чтобы получить постоянный доступ.`;
+      }
       return msg;
     }
 
@@ -480,6 +483,8 @@
         $('run_campaign').disabled = true;
         if (st.gmail_connected && !st.gmail_connected_matches_user) {
           $('gmail_msg').textContent = `Подключен не тот Gmail (${st.gmail_connected_email}). Нажмите Connect Gmail и войдите как ${s.email}.`;
+        } else if (st.gmail_connected && !st.gmail_refresh_token_present) {
+          $('gmail_msg').textContent = `Для ${s.email} нет refresh token. Переподключите Gmail один раз через Connect Gmail.`;
         }
         renderStats(st.queue || { total:0,pending:0,approved:0,rejected:0 });
       } catch (e) {

@@ -413,7 +413,7 @@ def user_status(email: str) -> dict[str, Any]:
     with db_conn() as conn:
         u = conn.execute("SELECT email,name FROM users WHERE email=?", (user_email,)).fetchone()
         g = conn.execute(
-            "SELECT connected_email,expires_at FROM gmail_connections WHERE user_email=?", (user_email,)
+            "SELECT connected_email,refresh_token,expires_at FROM gmail_connections WHERE user_email=?", (user_email,)
         ).fetchone()
         p = conn.execute("SELECT domain FROM pipedrive_connections WHERE user_email=?", (user_email,)).fetchone()
         qs = conn.execute(
@@ -445,6 +445,7 @@ def user_status(email: str) -> dict[str, Any]:
         "gmail_connected": bool(g),
         "gmail_connected_email": (g["connected_email"] if g else ""),
         "gmail_connected_matches_user": bool(g) and str(g["connected_email"] or "").strip().lower() == user_email,
+        "gmail_refresh_token_present": bool(g and str(g["refresh_token"] or "").strip()) if g and "refresh_token" in g.keys() else False,
         "gmail_expires_at": (g["expires_at"] if g else ""),
         "pipedrive_connected": bool(p),
         "pipedrive_domain": (p["domain"] if p else ""),
@@ -683,9 +684,12 @@ async def ensure_valid_access_token(conn: GmailConn) -> str:
     if expires_at - datetime.now(timezone.utc) > timedelta(minutes=2):
         return conn.access_token
     if not conn.refresh_token:
-        return conn.access_token
+        raise HTTPException(status_code=401, detail="gmail_reconnect_required: missing_refresh_token")
 
-    refreshed = await refresh_access_token(conn.refresh_token)
+    try:
+        refreshed = await refresh_access_token(conn.refresh_token)
+    except HTTPException as exc:
+        raise HTTPException(status_code=401, detail="gmail_reconnect_required: token_refresh_failed") from exc
     new_access = str(refreshed.get("access_token", "")) or conn.access_token
     new_expires = int(refreshed.get("expires_in", 3600))
     expires_at_new = (datetime.now(timezone.utc) + timedelta(seconds=max(60, new_expires))).replace(microsecond=0).isoformat()
@@ -1171,12 +1175,21 @@ async def process_active_campaigns_once() -> None:
             continue
         try:
             access_token = await ensure_valid_access_token(gmail_conn)
+        except HTTPException as exc:
+            detail = str(exc.detail or "")
+            if detail.startswith("gmail_reconnect_required:"):
+                with db_conn() as conn:
+                    conn.execute(
+                        "UPDATE campaigns SET status='error', updated_at=? WHERE campaign_id=?",
+                        (now_s, campaign_id),
+                    )
+            continue
         except Exception:
             continue
         with db_conn() as conn:
             targets = conn.execute(
                 """
-                SELECT organization_domain,organization_name,to_email,token,draft_text,sent_count,max_sends,next_send_at,
+                SELECT organization_domain,organization_name,to_email,token,draft_text,sent_count,max_sends,last_sent_at,next_send_at,
                        replied_at,pipedrive_deal_id,status,subject_text
                 FROM campaign_targets
                 WHERE campaign_id=? AND status='active'
@@ -1194,6 +1207,7 @@ async def process_active_campaigns_once() -> None:
             draft_text = str(t["draft_text"] or "")
             sent_count = int(t["sent_count"] or 0)
             max_sends = int(t["max_sends"] or 1)
+            last_sent_at = str(t["last_sent_at"] or "")
             next_send_at = parse_iso(str(t["next_send_at"] or now_s))
             replied_at = str(t["replied_at"] or "")
             deal_id = str(t["pipedrive_deal_id"] or "")
