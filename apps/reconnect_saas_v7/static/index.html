@@ -100,6 +100,7 @@
         <button id="pause_generate" disabled>Pause</button>
         <button id="resume_generate" disabled>Resume</button>
         <button id="refresh_queue" disabled>Refresh queue</button>
+        <button id="restore_queue" disabled>Restore saved approvals</button>
         <button id="generate_drafts" disabled>Generate follow-up from approved</button>
       </div>
       <div id="loading_wrap" class="hidden" style="margin:10px 0;">
@@ -227,6 +228,23 @@
         body: JSON.stringify({ email, decisions: diffs }),
       });
       return true;
+    }
+
+    async function restoreQueueDecisionBackup(email, rows) {
+      const backup = getQueueDecisionBackup(email);
+      const diffs = (rows || [])
+        .filter((r) => backup[String(r.organization_domain || '').toLowerCase()])
+        .map((r) => ({
+          organization_domain: String(r.organization_domain || '').toLowerCase(),
+          status: backup[String(r.organization_domain || '').toLowerCase()],
+        }))
+        .filter((x) => ['pending', 'approved', 'rejected'].includes(String(x.status || '').toLowerCase()));
+      if (!diffs.length) return 0;
+      const out = await api('/api/queue/decisions/bulk', {
+        method: 'POST',
+        body: JSON.stringify({ email, decisions: diffs }),
+      });
+      return Number(out.updated || 0);
     }
 
     async function api(path, opts = {}) {
@@ -497,6 +515,7 @@
         $('pause_generate').disabled = true;
         $('resume_generate').disabled = true;
         $('refresh_queue').disabled = true;
+        $('restore_queue').disabled = true;
         $('generate_drafts').disabled = true;
         $('run_campaign').disabled = true;
         return;
@@ -516,6 +535,7 @@
         $('pause_generate').disabled = true;
         $('resume_generate').disabled = true;
         $('refresh_queue').disabled = !ready;
+        $('restore_queue').disabled = !ready;
         $('run_campaign').disabled = true;
         if (st.gmail_connected && !st.gmail_connected_matches_user) {
           $('gmail_msg').textContent = `Подключен не тот Gmail (${st.gmail_connected_email}). Нажмите Connect Gmail и войдите как ${s.email}.`;
@@ -712,6 +732,20 @@
     });
 
     $('refresh_queue').addEventListener('click', refreshQueue);
+    $('restore_queue').addEventListener('click', async () => {
+      const s = load();
+      if (!s.email) return;
+      try {
+        const out = await api(`/api/queue?email=${encodeURIComponent(s.email)}`);
+        const restored = await restoreQueueDecisionBackup(s.email, out.rows || []);
+        await refreshQueue();
+        $('queue_msg').textContent = restored > 0
+          ? `Restored ${restored} saved approval decisions.`
+          : 'No saved approvals found for restore.';
+      } catch (e) {
+        $('queue_msg').textContent = `Restore failed: ${explainApiError(e.message, s.email)}`;
+      }
+    });
     $('refresh_drafts').addEventListener('click', refreshDrafts);
     $('refresh_campaign').addEventListener('click', refreshCampaignStatus);
 
