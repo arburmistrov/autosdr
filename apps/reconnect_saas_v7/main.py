@@ -169,6 +169,16 @@ class DecisionPayload(BaseModel):
     status: str
 
 
+class QueueDecisionItem(BaseModel):
+    organization_domain: str
+    status: str
+
+
+class QueueDecisionBulkPayload(BaseModel):
+    email: EmailStr
+    decisions: list[QueueDecisionItem]
+
+
 class DraftPayload(BaseModel):
     email: EmailStr
 
@@ -269,6 +279,14 @@ def init_db() -> None:
               payload_json TEXT NOT NULL,
               updated_at TEXT NOT NULL,
               PRIMARY KEY (user_email, organization_domain)
+            );
+            CREATE TABLE IF NOT EXISTS queue_decision_events (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              user_email TEXT NOT NULL,
+              organization_domain TEXT NOT NULL,
+              status TEXT NOT NULL,
+              source TEXT NOT NULL DEFAULT 'ui',
+              created_at TEXT NOT NULL
             );
             CREATE TABLE IF NOT EXISTS followup_drafts (
               user_email TEXT NOT NULL,
@@ -1474,6 +1492,16 @@ def queue_get(email: str = Query(...)) -> dict[str, Any]:
     }
 
 
+def log_queue_decision(conn: sqlite3.Connection, user_email: str, domain: str, status: str, source: str) -> None:
+    conn.execute(
+        """
+        INSERT INTO queue_decision_events(user_email, organization_domain, status, source, created_at)
+        VALUES(?,?,?,?,?)
+        """,
+        (user_email, domain, status, source, now_iso()),
+    )
+
+
 @app.post("/api/queue/decision")
 def queue_decision(payload: DecisionPayload) -> dict[str, Any]:
     user_email = str(payload.email).strip().lower()
@@ -1487,9 +1515,34 @@ def queue_decision(payload: DecisionPayload) -> dict[str, Any]:
             "UPDATE queue_candidates SET status=?, updated_at=? WHERE user_email=? AND organization_domain=?",
             (status, now_iso(), user_email, domain),
         )
+        if cur.rowcount >= 1:
+            log_queue_decision(conn, user_email, domain, status, "ui")
     if cur.rowcount < 1:
         raise HTTPException(status_code=404, detail="row_not_found")
     return {"ok": True, "organization_domain": domain, "status": status}
+
+
+@app.post("/api/queue/decisions/bulk")
+def queue_decisions_bulk(payload: QueueDecisionBulkPayload) -> dict[str, Any]:
+    user_email = str(payload.email).strip().lower()
+    if not payload.decisions:
+        return {"ok": True, "updated": 0}
+
+    updated = 0
+    with db_conn() as conn:
+        for item in payload.decisions:
+            domain = item.organization_domain.strip().lower()
+            status = item.status.strip().lower()
+            if not domain or status not in {"pending", "approved", "rejected"}:
+                continue
+            cur = conn.execute(
+                "UPDATE queue_candidates SET status=?, updated_at=? WHERE user_email=? AND organization_domain=?",
+                (status, now_iso(), user_email, domain),
+            )
+            if cur.rowcount >= 1:
+                updated += int(cur.rowcount)
+                log_queue_decision(conn, user_email, domain, status, "bulk_restore")
+    return {"ok": True, "updated": updated}
 
 
 async def generate_queue_result(

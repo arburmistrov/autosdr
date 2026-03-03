@@ -194,6 +194,41 @@
       save(s);
     }
 
+    function getQueueDecisionBackup(email) {
+      const s = load();
+      const all = s.queue_decisions || {};
+      return all[email] || {};
+    }
+
+    function setQueueDecisionBackup(email, decisions) {
+      const s = load();
+      s.queue_decisions = s.queue_decisions || {};
+      s.queue_decisions[email] = decisions || {};
+      save(s);
+    }
+
+    function rememberQueueDecision(email, domain, status) {
+      const current = getQueueDecisionBackup(email);
+      current[String(domain || '').toLowerCase()] = String(status || 'pending').toLowerCase();
+      setQueueDecisionBackup(email, current);
+    }
+
+    async function syncQueueDecisionBackup(email, rows) {
+      const backup = getQueueDecisionBackup(email);
+      const diffs = (rows || [])
+        .filter((r) => backup[String(r.organization_domain || '').toLowerCase()] && backup[String(r.organization_domain || '').toLowerCase()] !== String(r.status || 'pending').toLowerCase())
+        .map((r) => ({
+          organization_domain: String(r.organization_domain || '').toLowerCase(),
+          status: backup[String(r.organization_domain || '').toLowerCase()],
+        }));
+      if (!diffs.length) return false;
+      await api('/api/queue/decisions/bulk', {
+        method: 'POST',
+        body: JSON.stringify({ email, decisions: diffs }),
+      });
+      return true;
+    }
+
     async function api(path, opts = {}) {
       const res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts });
       const text = await res.text();
@@ -415,6 +450,7 @@
           const s = load();
           const status = a === 'approve' ? 'approved' : (a === 'reject' ? 'rejected' : 'pending');
           try {
+            rememberQueueDecision(s.email, domain, status);
             await api('/api/queue/decision', { method: 'POST', body: JSON.stringify({ email: s.email, organization_domain: domain, status }) });
             await refreshQueue();
           } catch (e) {
@@ -496,8 +532,13 @@
       const s = load();
       if (!s.email) return;
       try {
-        const out = await api(`/api/queue?email=${encodeURIComponent(s.email)}`);
+        let out = await api(`/api/queue?email=${encodeURIComponent(s.email)}`);
         queueRows = out.rows || [];
+        const restored = await syncQueueDecisionBackup(s.email, queueRows);
+        if (restored) {
+          out = await api(`/api/queue?email=${encodeURIComponent(s.email)}`);
+          queueRows = out.rows || [];
+        }
         $('queue_card').classList.toggle('hidden', queueRows.length < 1);
         renderStats(out.summary || { total:0,pending:0,approved:0,rejected:0 });
         renderRows();
