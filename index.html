@@ -3,316 +3,701 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>S-PRO Manufacturing Suite</title>
-  <meta name="description" content="Modular digital platform for manufacturing sales, quotation, documentation, and operations. Launch fast with reusable solution blocks." />
+  <script>document.documentElement.classList.add("js");</script>
+  <title>TaskOS | Execution Layer for the Physical World</title>
+  <meta
+    name="description"
+    content="TaskOS connects people, AI, and machines to turn natural-language instructions into coordinated action across real-world operations."
+  />
+  <meta name="theme-color" content="#0b2428" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=5" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+  <link rel="icon" href="./assets/taskos-mark.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
   <header class="site-header">
-    <div class="container header-row">
-      <a class="brand" href="https://s-pro.io/" target="_blank" rel="noreferrer">
-        <img
-          class="brand-logo"
-          src="https://s-pro.io/wp-content/uploads/2024/08/Logo-new.svg"
-          alt="S-PRO logo"
-        />
+    <div class="container nav-shell">
+      <a class="brand" href="./index.html" aria-label="TaskOS home">
+        <img src="./assets/taskos-mark.svg" alt="" aria-hidden="true" />
+        <span>TaskOS</span>
       </a>
-      <nav class="header-nav">
-        <a href="#suite">Solutions</a>
-        <a href="#architecture">Architecture</a>
-        <a href="#impact">Impact</a>
-        <a href="#contact">Contact</a>
+      <nav class="site-nav" aria-label="Primary">
+        <a href="#problem">Problem</a>
+        <a href="#workflow">Workflow</a>
+        <a href="#platform">Platform</a>
+        <a href="#industries">Industries</a>
+        <a href="#demo">Demo</a>
       </nav>
-      <a class="btn btn-primary" href="#contact">Book Discovery Call</a>
+      <a class="button button-small button-primary" href="#demo">Book a Demo</a>
     </div>
   </header>
 
   <main>
-    <section class="hero section">
-      <div class="container hero-grid">
-        <div>
-          <p class="eyebrow">MANUFACTURING SUITE</p>
-          <h1>Automate your manufacturing sales cycle in weeks, not months.</h1>
-          <p class="lead">Deploy modular digital solutions for qualification, quotation, contracting, and delivery handover. Start fast with the highest-impact module, then scale across teams.</p>
-          <div class="hero-cta-row">
-            <a class="btn btn-primary" href="#suite">Explore Modules</a>
-            <a class="btn btn-secondary" href="#contact">Get Pilot Plan</a>
-          </div>
-          <ul class="hero-meta">
-            <li>Launch pilot in 6-10 weeks</li>
-            <li>Modular rollout with existing CRM/ERP</li>
-            <li>Security and governance by design</li>
-          </ul>
-        </div>
-        <div class="hero-screen">
-          <img src="./assets/screen-lifecycle-board-v2.svg" alt="Manufacturing sales lifecycle workspace interface" />
-        </div>
+    <section class="hero section-shell" id="top">
+      <div class="hero-backdrop" aria-hidden="true">
+        <img class="hero-grid" src="./assets/taskos-grid.svg" alt="" />
+        <div class="hero-glow hero-glow-one"></div>
+        <div class="hero-glow hero-glow-two"></div>
+        <div class="hero-beam"></div>
       </div>
-    </section>
-
-    <section class="section pain">
-      <div class="container">
-        <div class="section-head">
-          <p class="eyebrow">WHAT LEADERS CARE ABOUT</p>
-          <h2>Built for CEO and operations priorities, not just features.</h2>
-        </div>
-        <div class="pain-grid">
-          <article>
-            <h3>Revenue speed</h3>
-            <p>Shorten opportunity-to-offer time to capture more deals and reduce drop-off.</p>
-          </article>
-          <article>
-            <h3>Margin control</h3>
-            <p>Reduce manual estimation errors and improve pricing consistency.</p>
-          </article>
-          <article>
-            <h3>Operational resilience</h3>
-            <p>Keep knowledge inside systems instead of inside a few experts.</p>
-          </article>
-          <article>
-            <h3>Scale without chaos</h3>
-            <p>Add new digital capabilities in phases without breaking current teams or tooling.</p>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <section id="suite" class="section suite">
-      <div class="container">
-        <div class="section-head">
-          <p class="eyebrow">MODULAR SUITE</p>
-          <h2>Start with one module. Expand into a full operating system.</h2>
-          <p class="subhead">Each module is independent. Pick one module for a pilot or combine multiple modules into one end-to-end flow.</p>
-        </div>
-
-        <div class="suite-layout">
-          <div class="module-list" id="module-list">
-            <button class="module-card is-active" data-module="bd-intelligence" type="button">
-              <h3>Market and Account Intelligence</h3>
-              <p>Target account analysis and qualification briefs.</p>
-            </button>
-            <button class="module-card" data-module="opportunity-engine" type="button">
-              <h3>Opportunity Structuring Engine</h3>
-              <p>Brief normalization, risk flags, and clarification questions.</p>
-            </button>
-            <button class="module-card" data-module="quote-automation" type="button">
-              <h3>Quote Automation Studio</h3>
-              <p>Drawing/PDF/image recognition plus offer draft generation.</p>
-            </button>
-            <button class="module-card" data-module="estimation-memory" type="button">
-              <h3>Estimation Memory Graph</h3>
-              <p>Reusable pricing logic and assumptions with traceability.</p>
-            </button>
-            <button class="module-card" data-module="contract-docs" type="button">
-              <h3>Contract and Documentation Workspace</h3>
-              <p>Contract support, policy answers, and audit-ready history.</p>
-            </button>
+      <div class="container hero-layout">
+        <div class="hero-copy reveal is-visible">
+          <p class="eyebrow">Execution Layer for the Physical World</p>
+          <h1>Connecting people, AI, and machines to get real work done.</h1>
+          <p class="hero-text">
+            TaskOS turns natural-language instructions into coordinated execution across teams, robots,
+            sensors, and enterprise systems. It closes the gap between intent, action, and verified outcome.
+          </p>
+          <div class="button-row">
+            <a class="button button-primary" href="#demo">Book a Demo</a>
+            <a class="button button-secondary" href="#workflow">Watch Workflow</a>
           </div>
+          <div class="hero-stat-strip">
+            <article class="metric-card">
+              <span class="metric-label">First action</span>
+              <strong><span class="count-up" data-count="12">12</span>s</strong>
+              <small>illustrative from instruction to dispatch</small>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">Coordinated surfaces</span>
+              <strong><span class="count-up" data-count="4">4</span></strong>
+              <small>humans, robots, systems, and sensors</small>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">Trace visibility</span>
+              <strong><span class="count-up" data-count="100">100</span>%</strong>
+              <small>illustrative audit coverage across the workflow</small>
+            </article>
+          </div>
+          <p class="support-note">Illustrative outcomes shown for concept and educational use.</p>
+        </div>
 
-          <article class="module-detail" id="module-detail">
-            <div class="module-detail-head">
-              <h3 id="detail-title">Market and Account Intelligence</h3>
-              <p id="detail-summary">Target account analysis and qualification briefs.</p>
-            </div>
-            <div class="detail-kpis" id="detail-kpis"></div>
-            <div class="detail-grid">
-              <div>
-                <h4>What it does</h4>
-                <ul id="detail-features"></ul>
+        <div class="hero-stage reveal">
+          <div class="stage-shell">
+            <div class="stage-topbar">
+              <div class="stage-chips">
+                <span>Voice</span>
+                <span>Text</span>
+                <span>System Trigger</span>
               </div>
-              <div>
-                <h4>Data and integrations</h4>
-                <ul id="detail-integrations"></ul>
+              <div class="stage-status">
+                <span class="status-dot"></span>
+                <span>Live orchestration</span>
               </div>
             </div>
-            <figure class="detail-screen">
-              <img id="detail-image" src="./assets/screen-bd-intelligence.svg" alt="Solution module interface" />
-            </figure>
-          </article>
+
+            <div class="command-window">
+              <p class="window-label">Incoming intent</p>
+              <p class="command-line">
+                <span class="command-prefix">&gt;</span>
+                <span
+                  id="hero-command"
+                  data-commands="Check warehouse 3, temperature issue|Dispatch thermal rover to dock B|Alert technician for compressor anomaly|Lock out line 2 and verify pressure variance"
+                >
+                  Check warehouse 3, temperature issue
+                </span>
+              </p>
+            </div>
+
+            <div class="surface-grid">
+              <article class="surface-card is-active" data-hero-card>
+                <span class="surface-tag">Context</span>
+                <strong>Sensor fabric</strong>
+                <p>Environmental feed, threshold history, and maintenance context loaded instantly.</p>
+              </article>
+              <article class="surface-card" data-hero-card>
+                <span class="surface-tag">Execution</span>
+                <strong>Autonomous inspection</strong>
+                <p>Camera rover and thermal path are prepared for dispatch based on floor availability.</p>
+              </article>
+              <article class="surface-card" data-hero-card>
+                <span class="surface-tag">Coordination</span>
+                <strong>Human escalation</strong>
+                <p>Technician route, safety approval, and incident owner are assigned in parallel.</p>
+              </article>
+            </div>
+
+            <div class="trace-rail" aria-label="Execution rail">
+              <span class="trace-node trace-node-active">Intent</span>
+              <span class="trace-node">Task graph</span>
+              <span class="trace-node">Execution</span>
+              <span class="trace-node">Trace</span>
+            </div>
+
+            <div class="trace-log">
+              <article>
+                <span>00:04</span>
+                <p>Telemetry pull initiated from warehouse 3 cluster.</p>
+              </article>
+              <article>
+                <span>00:08</span>
+                <p>Inspection rover path cleared and technician notified.</p>
+              </article>
+              <article>
+                <span>00:16</span>
+                <p>Issue confirmed, action logged, report package started.</p>
+              </article>
+            </div>
+          </div>
+
+          <div class="orbital-cluster" aria-hidden="true">
+            <span class="orbit orbit-one"></span>
+            <span class="orbit orbit-two"></span>
+            <span class="orbit orbit-three"></span>
+            <span class="node node-one"></span>
+            <span class="node node-two"></span>
+            <span class="node node-three"></span>
+          </div>
         </div>
       </div>
     </section>
 
-    <section id="architecture" class="section architecture">
-      <div class="container architecture-grid">
-        <div>
-          <p class="eyebrow">PLATFORM ARCHITECTURE</p>
-          <h2>Composable stack with governance at every layer.</h2>
-          <p class="subhead">Deploy on your infrastructure or private cloud. Each module can be enabled independently.</p>
-          <ul class="architecture-list">
-            <li><strong>Experience Layer:</strong> sales cockpit, estimator workspace, documentation portal.</li>
-            <li><strong>Workflow Orchestration Layer:</strong> decision workflows, retrieval, routing, and human approval.</li>
-            <li><strong>Knowledge Layer:</strong> offer history, technical documentation, pricing memory.</li>
-            <li><strong>Control Layer:</strong> RBAC, audit trails, versioning, security monitoring.</li>
-          </ul>
-        </div>
-        <div class="architecture-screen">
-          <img src="./assets/screen-architecture.svg" alt="Manufacturing suite architecture map" />
+    <section class="trust-band">
+      <div class="container trust-shell">
+        <p class="trust-label">Built for coordination-heavy operations</p>
+        <div class="trust-marquee" aria-label="Illustrative verticals">
+          <div class="trust-track">
+            <span>Warehousing</span>
+            <span>Manufacturing</span>
+            <span>Energy</span>
+            <span>Infrastructure</span>
+            <span>Field Service</span>
+            <span>Industrial Safety</span>
+            <span>Warehousing</span>
+            <span>Manufacturing</span>
+            <span>Energy</span>
+            <span>Infrastructure</span>
+            <span>Field Service</span>
+            <span>Industrial Safety</span>
+          </div>
         </div>
       </div>
     </section>
 
-    <section id="impact" class="section impact">
+    <section class="section-shell section-light" id="problem">
       <div class="container">
-        <div class="section-head">
-          <p class="eyebrow">BUSINESS IMPACT</p>
-          <h2>Expected impact model for manufacturing commercial operations</h2>
+        <div class="section-head reveal">
+          <p class="eyebrow">Problem</p>
+          <h2>Operations in the real world are still stitched together by people acting as coordinators.</h2>
+          <p>
+            Tasks arrive through chat, radio, email, and hallway conversations. Execution is manual, fragmented,
+            and hard to verify. The result is slow response, high error rates, and wasted labor.
+          </p>
         </div>
 
-        <div class="impact-grid">
-          <article class="metric-card">
-            <h3>Offer cycle time</h3>
-            <p class="metric">-35% to -60%</p>
-            <p class="meta">From first request to draft commercial offer.</p>
-          </article>
-          <article class="metric-card">
-            <h3>Expert effort in early scoping</h3>
-            <p class="metric">-25% to -45%</p>
-            <p class="meta">Less time spent on repetitive clarification loops.</p>
-          </article>
-          <article class="metric-card">
-            <h3>Quote quality consistency</h3>
-            <p class="metric">+20% to +40%</p>
-            <p class="meta">Stronger re-use of historical estimations and assumptions.</p>
-          </article>
-          <article class="metric-card">
-            <h3>Knowledge retention</h3>
-            <p class="metric">High</p>
-            <p class="meta">Critical know-how preserved in structured system memory.</p>
-          </article>
-        </div>
+        <div class="problem-grid">
+          <div class="problem-stack">
+            <article class="problem-card reveal">
+              <strong>Tasks are communicated verbally or via chat</strong>
+              <p>Intent gets lost in translation before anything operational actually starts.</p>
+            </article>
+            <article class="problem-card reveal">
+              <strong>Execution is manual and fragmented</strong>
+              <p>Humans patch together handoffs, approvals, follow-ups, and status updates by hand.</p>
+            </article>
+            <article class="problem-card reveal">
+              <strong>Systems do not talk to each other</strong>
+              <p>ERP, sensors, robots, maintenance platforms, and mobile teams operate in separate lanes.</p>
+            </article>
+            <article class="problem-card reveal">
+              <strong>Operators become coordination middleware</strong>
+              <p>High-value experts spend time chasing state instead of resolving the issue itself.</p>
+            </article>
+          </div>
 
-        <div class="roi-box">
+          <aside class="insight-card reveal">
+            <p class="eyebrow">Insight</p>
+            <h3>The bottleneck is not intelligence. It is execution.</h3>
+            <p>
+              AI can understand instructions. Machines can perform tasks. But few systems reliably connect
+              intent to action to outcome inside a live operating environment.
+            </p>
+            <div class="connector-flow" aria-label="Intent to action to outcome">
+              <div class="flow-box">
+                <span>Intent</span>
+                <strong>Natural-language request</strong>
+              </div>
+              <div class="flow-arrow">
+                <span class="flow-pulse"></span>
+              </div>
+              <div class="flow-box">
+                <span>Action</span>
+                <strong>Executable task graph</strong>
+              </div>
+              <div class="flow-arrow">
+                <span class="flow-pulse"></span>
+              </div>
+              <div class="flow-box">
+                <span>Outcome</span>
+                <strong>Verified real-world completion</strong>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-shell workflow-section" id="workflow">
+      <div class="container">
+        <div class="section-head section-head-split reveal">
           <div>
-            <h3>Quick ROI estimator</h3>
-            <p>Set your current monthly opportunity volume and average engineering hours per quote.</p>
+            <p class="eyebrow">How It Works</p>
+            <h2>TaskOS turns a message into a managed execution loop.</h2>
           </div>
-          <div class="roi-controls">
-            <label>Monthly opportunities
-              <input id="opp-count" type="range" min="20" max="600" value="140" step="10" />
-            </label>
-            <label>Hours per quote today
-              <input id="hours-per-quote" type="range" min="2" max="40" value="12" step="1" />
-            </label>
+          <p>
+            The workflow is designed to feel more like an operating layer than a chatbot: interpret context,
+            decompose the job, assign across humans and machines, then monitor and adapt until the outcome is verified.
+          </p>
+        </div>
+
+        <div class="workflow-story">
+          <div class="workflow-stage reveal">
+            <div class="sticky-shell">
+              <div class="screen-shell">
+                <div class="screen-meta">
+                  <span class="screen-badge">Illustrative workflow view</span>
+                  <span class="screen-kicker" id="workflow-kicker">Context loaded</span>
+                </div>
+
+                <section class="workflow-panel is-active" data-panel="understand">
+                  <div class="panel-grid">
+                    <article>
+                      <span>Intent source</span>
+                      <strong>Voice command: warehouse 3 temp issue</strong>
+                    </article>
+                    <article>
+                      <span>Context retrieval</span>
+                      <strong>Sensor history, shift roster, maintenance incidents</strong>
+                    </article>
+                    <article>
+                      <span>Risk scoring</span>
+                      <strong>Escalation confidence 0.92</strong>
+                    </article>
+                  </div>
+                  <div class="panel-callout">
+                    <h3>Understand</h3>
+                    <p>Interpret the request in context before anyone is dispatched.</p>
+                  </div>
+                </section>
+
+                <section class="workflow-panel" data-panel="decompose" hidden>
+                  <div class="task-graph">
+                    <article>
+                      <span>Step 1</span>
+                      <strong>Pull live telemetry</strong>
+                    </article>
+                    <article>
+                      <span>Step 2</span>
+                      <strong>Send rover for visual confirmation</strong>
+                    </article>
+                    <article>
+                      <span>Step 3</span>
+                      <strong>Notify on-call technician</strong>
+                    </article>
+                    <article>
+                      <span>Step 4</span>
+                      <strong>Generate incident brief</strong>
+                    </article>
+                  </div>
+                  <div class="panel-callout">
+                    <h3>Decompose</h3>
+                    <p>Break the objective into executable steps with dependencies and exceptions.</p>
+                  </div>
+                </section>
+
+                <section class="workflow-panel" data-panel="orchestrate" hidden>
+                  <div class="lane-grid">
+                    <article>
+                      <span>Robot</span>
+                      <strong>Rover C-12</strong>
+                      <p>Path allocated with aisle safety clearance.</p>
+                    </article>
+                    <article>
+                      <span>Human</span>
+                      <strong>Technician A. Chen</strong>
+                      <p>Mobile escalation and estimated arrival confirmed.</p>
+                    </article>
+                    <article>
+                      <span>System</span>
+                      <strong>BMS + Ticketing</strong>
+                      <p>Threshold snapshot and work order created.</p>
+                    </article>
+                  </div>
+                  <div class="panel-callout">
+                    <h3>Orchestrate</h3>
+                    <p>Assign each action to the right person, robot, or existing system.</p>
+                  </div>
+                </section>
+
+                <section class="workflow-panel" data-panel="execute" hidden>
+                  <div class="status-board">
+                    <article class="status-live">
+                      <span>Rover inspection</span>
+                      <strong>Complete</strong>
+                    </article>
+                    <article class="status-live">
+                      <span>Technician intervention</span>
+                      <strong>In progress</strong>
+                    </article>
+                    <article>
+                      <span>Incident report</span>
+                      <strong>Drafting with trace log</strong>
+                    </article>
+                  </div>
+                  <div class="panel-callout">
+                    <h3>Execute &amp; Monitor</h3>
+                    <p>Track completion in real time, adapt, and leave a full operational trace.</p>
+                  </div>
+                </section>
+              </div>
+            </div>
           </div>
-          <div class="roi-output">
-            <p><span id="opp-value">140</span> opportunities/month</p>
-            <p><span id="hours-value">12</span> hours per quote</p>
-            <p>Estimated hours saved with suite: <strong id="hours-saved">504</strong> h/month</p>
+
+          <div class="workflow-steps" role="tablist" aria-label="TaskOS workflow steps">
+            <button class="workflow-step reveal is-active" type="button" data-step="understand" aria-selected="true">
+              <span class="step-index">01</span>
+              <div>
+                <strong>Understand</strong>
+                <p>AI interprets intent and operating context before work begins.</p>
+              </div>
+            </button>
+            <button class="workflow-step reveal" type="button" data-step="decompose" aria-selected="false">
+              <span class="step-index">02</span>
+              <div>
+                <strong>Decompose</strong>
+                <p>The request becomes a task graph with explicit steps, dependencies, and exceptions.</p>
+              </div>
+            </button>
+            <button class="workflow-step reveal" type="button" data-step="orchestrate" aria-selected="false">
+              <span class="step-index">03</span>
+              <div>
+                <strong>Orchestrate</strong>
+                <p>TaskOS routes execution across humans, robots, and connected software.</p>
+              </div>
+            </button>
+            <button class="workflow-step reveal" type="button" data-step="execute" aria-selected="false">
+              <span class="step-index">04</span>
+              <div>
+                <strong>Execute &amp; Monitor</strong>
+                <p>Completion is tracked live, with recovery paths and traceability built in.</p>
+              </div>
+            </button>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="section rollout">
+    <section class="section-shell section-light">
       <div class="container">
-        <div class="section-head">
-          <p class="eyebrow">IMPLEMENTATION MODEL</p>
-          <h2>How we take this from concept to production</h2>
+        <div class="section-head reveal">
+          <p class="eyebrow">Example Use Case</p>
+          <h2>Warehouse incident handling, from message to verified resolution.</h2>
+          <p>
+            A supervisor reports an issue in plain language. TaskOS pulls context, dispatches the right assets,
+            alerts the right human, and generates a traceable outcome package.
+          </p>
         </div>
-        <div class="rollout-grid">
-          <article>
-            <span>01</span>
-            <h3>Diagnostic Sprint</h3>
-            <p>Map process bottlenecks, prioritize high-impact modules, define KPI baseline.</p>
-          </article>
-          <article>
-            <span>02</span>
-            <h3>Pilot Build</h3>
-            <p>Deploy 1-2 modules with real users, real data, and integration into current systems.</p>
-          </article>
-          <article>
-            <span>03</span>
-            <h3>Scale Program</h3>
-            <p>Roll out module set across teams with governance, training, and operations playbook.</p>
-          </article>
+
+        <div class="use-case-grid">
+          <div class="scenario-card reveal">
+            <div class="scenario-input">
+              <span>Input</span>
+              <strong>"Check warehouse 3, temperature issue."</strong>
+            </div>
+            <div class="scenario-results">
+              <article>
+                <span>Verified issue</span>
+                <strong>Cooling unit drift confirmed at aisle C3</strong>
+              </article>
+              <article>
+                <span>Action taken</span>
+                <strong>Technician dispatched and temporary reroute applied</strong>
+              </article>
+              <article>
+                <span>Trace logged</span>
+                <strong>Sensor evidence, operator actions, and report package attached</strong>
+              </article>
+            </div>
+          </div>
+
+          <div class="incident-card reveal">
+            <div class="incident-head">
+              <div>
+                <span class="incident-label">Illustrative incident trace</span>
+                <h3 id="incident-phase-label">Pulling live sensor data</h3>
+              </div>
+              <span class="incident-badge">Warehouse 3</span>
+            </div>
+            <div class="incident-timeline" role="list" aria-label="Incident timeline">
+              <article class="incident-step is-current" data-incident-step role="listitem">
+                <span class="incident-index">01</span>
+                <div>
+                  <strong>Pull sensor data</strong>
+                  <p>Temperature delta spikes beyond configured threshold.</p>
+                </div>
+                <span class="incident-state">Running</span>
+              </article>
+              <article class="incident-step" data-incident-step role="listitem">
+                <span class="incident-index">02</span>
+                <div>
+                  <strong>Dispatch rover inspection</strong>
+                  <p>Vision feed validates whether the anomaly is environmental or mechanical.</p>
+                </div>
+                <span class="incident-state">Queued</span>
+              </article>
+              <article class="incident-step" data-incident-step role="listitem">
+                <span class="incident-index">03</span>
+                <div>
+                  <strong>Alert technician</strong>
+                  <p>On-call specialist receives route, severity, and recommended action.</p>
+                </div>
+                <span class="incident-state">Queued</span>
+              </article>
+              <article class="incident-step" data-incident-step role="listitem">
+                <span class="incident-index">04</span>
+                <div>
+                  <strong>Generate report</strong>
+                  <p>Evidence, steps taken, and follow-up actions are logged automatically.</p>
+                </div>
+                <span class="incident-state">Queued</span>
+              </article>
+            </div>
+          </div>
         </div>
       </div>
     </section>
 
-    <section class="section decision">
+    <section class="section-shell platform-section" id="platform">
       <div class="container">
-        <div class="section-head">
-          <p class="eyebrow">EXECUTIVE DECISION SUPPORT</p>
-          <h2>What de-risks the decision for manufacturing leadership</h2>
+        <div class="section-head section-head-split reveal">
+          <div>
+            <p class="eyebrow">Product Scope</p>
+            <h2>Execution infrastructure, not another disconnected dashboard.</h2>
+          </div>
+          <p>
+            TaskOS sits in the coordination layer between intent and execution. It is designed to orchestrate across
+            people, machines, and existing enterprise systems rather than replace them.
+          </p>
         </div>
-        <div class="decision-grid">
-          <article>
-            <h3>Controlled rollout</h3>
-            <p>Start with one plant, one region, or one sales team. Expand only after KPI validation.</p>
+
+        <div class="platform-layout">
+          <div class="platform-stack reveal">
+            <article class="layer-card layer-input">
+              <span>Input surfaces</span>
+              <strong>Voice, mobile, system triggers</strong>
+              <p>Natural-language instructions and machine events become structured operational tasks.</p>
+            </article>
+            <article class="layer-card layer-engine">
+              <span>Task engine</span>
+              <strong>Intent to workflow</strong>
+              <p>Interprets context, breaks work into steps, and manages dependencies.</p>
+            </article>
+            <article class="layer-card layer-orchestration">
+              <span>Orchestration layer</span>
+              <strong>People + machines + systems</strong>
+              <p>Routes work to technicians, robots, ticketing, ERP, sensors, and other endpoints.</p>
+            </article>
+            <article class="layer-card layer-feedback">
+              <span>Monitoring loop</span>
+              <strong>Completion, adaptation, feedback</strong>
+              <p>Tracks state, exceptions, and audit trails until the task is resolved.</p>
+            </article>
+          </div>
+
+          <div class="platform-cards">
+            <article class="platform-card reveal">
+              <h3>Integration Layer</h3>
+              <p>Designed to coordinate existing ERP, sensors, robots, maintenance software, and mobile workflows.</p>
+              <div class="chip-row">
+                <span>ERP</span>
+                <span>Sensor Mesh</span>
+                <span>Robotics</span>
+                <span>Ticketing</span>
+                <span>Mobile Ops</span>
+              </div>
+            </article>
+            <article class="platform-card reveal">
+              <h3>Monitoring and Traceability</h3>
+              <p>Every task carries status, evidence, ownership, and outcome logging from first instruction to closeout.</p>
+            </article>
+            <article class="platform-card reveal">
+              <h3>Enterprise Rollout Model</h3>
+              <p>Start narrow with one workflow, prove value, expand to adjacent operational loops, then standardize.</p>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-shell section-light" id="industries">
+      <div class="container">
+        <div class="section-head reveal">
+          <p class="eyebrow">Why Now</p>
+          <h2>The execution layer is becoming possible at the exact moment operations need it most.</h2>
+        </div>
+
+        <div class="why-grid">
+          <article class="why-card reveal">
+            <strong>AI can finally understand real-world instructions</strong>
+            <p>Intent no longer needs to be translated into brittle, hand-built workflows first.</p>
           </article>
-          <article>
-            <h3>Human-in-the-loop by default</h3>
-            <p>Critical commercial and contractual outputs stay under expert approval.</p>
+          <article class="why-card reveal">
+            <strong>Robotics and automation adoption is accelerating</strong>
+            <p>Physical systems are more capable, but coordination between them remains fragmented.</p>
           </article>
-          <article>
-            <h3>Enterprise-grade governance</h3>
-            <p>Role-based access, audit history, and model change control from day one.</p>
+          <article class="why-card reveal">
+            <strong>Labor shortages increase operational pressure</strong>
+            <p>Teams need leverage, not more manual coordination overhead.</p>
           </article>
-          <article>
-            <h3>Value tracking cadence</h3>
-            <p>Weekly operational metrics and monthly executive KPI review built into delivery.</p>
+          <article class="why-card reveal">
+            <strong>Existing systems remain siloed</strong>
+            <p>The gap is not more hardware. It is the orchestration layer that connects it all.</p>
+          </article>
+        </div>
+
+        <div class="industries-grid">
+          <article class="industry-card reveal">
+            <span>Initial vertical</span>
+            <h3>Warehousing &amp; logistics</h3>
+            <p>Incident response, equipment checks, dock coordination, and exception handling.</p>
+          </article>
+          <article class="industry-card reveal">
+            <span>Expansion path</span>
+            <h3>Manufacturing</h3>
+            <p>Line issues, maintenance handoffs, machine verification, and controlled approvals.</p>
+          </article>
+          <article class="industry-card reveal">
+            <span>High-value adjacency</span>
+            <h3>Energy &amp; infrastructure</h3>
+            <p>Field response, inspections, alarm workflows, and multi-system escalation management.</p>
+          </article>
+        </div>
+
+        <div class="illustrative-strip reveal">
+          <p>Illustrative value levers</p>
+          <div class="illustrative-grid">
+            <article>
+              <strong>Faster response times</strong>
+              <span>less time lost between issue detection and first action</span>
+            </article>
+            <article>
+              <strong>Lower coordination overhead</strong>
+              <span>operators spend less time managing status across fragmented tools</span>
+            </article>
+            <article>
+              <strong>Higher execution quality</strong>
+              <span>tasks run with context, ownership, and traceability built in</span>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-shell">
+      <div class="container">
+        <div class="section-head reveal">
+          <p class="eyebrow">Competitive Positioning</p>
+          <h2>TaskOS is not a robotics company, a voice assistant, or a generic AI layer.</h2>
+        </div>
+
+        <div class="positioning-grid">
+          <article class="positioning-card reveal">
+            <span class="positioning-prefix">Not</span>
+            <h3>A robotics company</h3>
+            <p>TaskOS coordinates hardware and human execution without needing to own the hardware stack.</p>
+          </article>
+          <article class="positioning-card reveal">
+            <span class="positioning-prefix">Not</span>
+            <h3>A voice assistant</h3>
+            <p>Language is only the input layer. The value is the operational follow-through behind it.</p>
+          </article>
+          <article class="positioning-card reveal">
+            <span class="positioning-prefix">Not</span>
+            <h3>A generic AI tool</h3>
+            <p>The platform is built around live workflow orchestration, not open-ended chat output.</p>
+          </article>
+          <article class="positioning-highlight reveal">
+            <p class="eyebrow">What We Are</p>
+            <h3>Execution infrastructure</h3>
+            <p>
+              The layer that makes fragmented systems, people, and machines actually work together in the physical world.
+            </p>
           </article>
         </div>
       </div>
     </section>
 
-    <section id="contact" class="section contact">
-      <div class="container contact-grid">
-        <div>
-          <p class="eyebrow">LET'S BUILD YOUR SUITE</p>
-          <h2>Get a tailored manufacturing suite blueprint</h2>
-          <p class="subhead">Share your current offer process and we return a prioritized module roadmap with delivery phases.</p>
-          <ul class="contact-list">
-            <li>Custom architecture aligned to your CRM/ERP landscape</li>
-            <li>Security and governance setup for enterprise rollouts</li>
-            <li>KPI model focused on revenue speed and margin stability</li>
-          </ul>
+    <section class="section-shell demo-section" id="demo">
+      <div class="container demo-grid">
+        <div class="demo-copy reveal">
+          <p class="eyebrow">Pilot Motion</p>
+          <h2>Start with one high-value workflow. Prove it. Expand from there.</h2>
+          <p>
+            The ideal first deployment is narrow, urgent, and measurable: warehouse incident response, machine issue
+            escalation, or another workflow where coordination delays create real cost.
+          </p>
+          <div class="demo-points">
+            <article>
+              <strong>Land</strong>
+              <p>Pick one operational workflow with visible coordination pain.</p>
+            </article>
+            <article>
+              <strong>Expand</strong>
+              <p>Add adjacent workflows, systems, and sites once execution value is proven.</p>
+            </article>
+            <article>
+              <strong>Standardize</strong>
+              <p>Make TaskOS the operating layer for real-world task execution.</p>
+            </article>
+          </div>
         </div>
 
-        <form class="lead-form" action="https://s-pro.io/contact/" method="get" target="_blank">
-          <label>
-            Full name
-            <input type="text" name="name" placeholder="Jane Smith" required />
-          </label>
-          <label>
-            Work email
-            <input type="email" name="email" placeholder="jane@company.com" required />
-          </label>
-          <label>
-            Company
-            <input type="text" name="company" placeholder="Manufacturing Corp" required />
-          </label>
-          <label>
-            Priority objective
-            <select name="objective" required>
-              <option value="">Select objective</option>
-              <option>Reduce quote turnaround time</option>
-              <option>Improve quote quality and margin control</option>
-              <option>Automate documentation and contracting</option>
-              <option>Build end-to-end digital operating model</option>
-            </select>
-          </label>
-          <label>
-            Brief context
-            <textarea name="message" rows="4" placeholder="Current process, key bottlenecks, systems in use"></textarea>
-          </label>
-          <button class="btn btn-primary" type="submit">Request Blueprint</button>
-        </form>
+        <aside class="demo-card reveal">
+          <span class="demo-label">Book a Demo</span>
+          <h3>TaskOS pilot briefing</h3>
+          <p>Best fit for enterprise teams with coordination-heavy physical operations and fragmented execution tooling.</p>
+          <div class="demo-checklist">
+            <article>
+              <strong>1 workflow review</strong>
+              <p>Map current task intake, handoffs, and failure points.</p>
+            </article>
+            <article>
+              <strong>Integration sketch</strong>
+              <p>Identify which systems, sensors, or field assets TaskOS should coordinate first.</p>
+            </article>
+            <article>
+              <strong>Pilot plan</strong>
+              <p>Define operational outcomes, rollout path, and success metrics.</p>
+            </article>
+          </div>
+          <div class="button-row button-row-stack">
+            <a class="button button-primary" href="mailto:pilots@taskos.example?subject=TaskOS%20Demo%20Request">Start the Conversation</a>
+            <a class="button button-secondary" href="#workflow">Review Workflow Again</a>
+          </div>
+          <p class="support-note">Prototype contact endpoint shown for concept and educational use.</p>
+        </aside>
       </div>
     </section>
   </main>
 
   <footer class="site-footer">
-    <div class="container footer-row">
-      <p>Manufacturing Suite concept by S-PRO.</p>
-      <a href="https://s-pro.io/" target="_blank" rel="noreferrer">s-pro.io</a>
+    <div class="container footer-shell">
+      <a class="brand brand-footer" href="./index.html">
+        <img src="./assets/taskos-mark.svg" alt="" aria-hidden="true" />
+        <span>TaskOS</span>
+      </a>
+      <div class="footer-links">
+        <a href="#problem">Problem</a>
+        <a href="#workflow">Workflow</a>
+        <a href="#platform">Platform</a>
+        <a href="#demo">Demo</a>
+        <a href="https://github.com/arburmistrov/autosdr">Current App</a>
+      </div>
     </div>
   </footer>
 
-  <script src="./script.js?v=5"></script>
+  <script src="./script.js" defer></script>
 </body>
 </html>
