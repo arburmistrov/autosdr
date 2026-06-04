@@ -9,7 +9,7 @@
   "notes_limit_per_deal": 20,
   "activities_limit_per_deal": 20,
   "deals_status": "open",
-  "use_raw_stage_names": true,
+  "use_raw_stage_names": false,
   "pipeline_include_names": [
     "S-PRO new"
   ],
