@@ -9,10 +9,17 @@
     "Qualified Meeting"
   ],
   "explicit_map": {
+    "SQL/Sales Lead": "Future pipeline",
     "Opportunity": "Scope Definition",
+    "Opportunity prepared": "Estimation",
     "Estimation": "Estimation",
+    "Presentation made": "Validation",
     "Validation": "Validation",
+    "In negotiation": "Presented",
     "Presented": "Presented",
+    "Result in 4 weeks": "Potential 80%+",
+    "Ready to buy": "Potential 80%+",
+    "Contract sent": "Potential 80%+",
     "Potential 80%+": "Potential 80%+",
     "Won": "Won",
     "Lost": "Lost"
