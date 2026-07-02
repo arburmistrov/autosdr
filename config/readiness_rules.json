@@ -43,6 +43,6 @@
       "presentation_link_present"
     ]
   },
-  "hard_rollback": true,
+  "hard_rollback": false,
   "rollback_reason_template": "Blocked move to {target_stage}: missing {missing}"
 }
