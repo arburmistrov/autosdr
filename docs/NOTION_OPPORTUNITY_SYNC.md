@@ -2,7 +2,11 @@
 
 ## Purpose
 
-Hourly one-way sync from Pipedrive deals into Notion `Opportunities` board.
+One-way sync from Pipedrive deals into Notion `Opportunities` board.
+
+Runs automatically once per day at **09:00 Europe/Zurich** (handles CET/CEST
+via a guard step, since GitHub cron is UTC-only), and on demand via the
+`workflow_dispatch` "Run workflow" button in the Actions tab.
 
 ## Required secrets
 

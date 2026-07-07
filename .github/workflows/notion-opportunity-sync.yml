@@ -3,7 +3,16 @@ name: Notion Opportunity Sync
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 * * * *'
+    # GitHub cron is UTC-only, has no DST awareness, AND frequently skips runs
+    # under load. So we fire several times across the 09:00 Zurich hour and let
+    # the guard step run the sync only when Zurich local hour == 09. This gives
+    # DST-correctness (07:xx UTC = 09:xx CEST summer, 08:xx UTC = 09:xx CET winter)
+    # plus a backup trigger 30 min later so a single skipped run never loses the day.
+    # The sync is idempotent (upsert by CRM Deal ID), so 1–2 runs a morning is safe.
+    - cron: '0 7 * * *'
+    - cron: '30 7 * * *'
+    - cron: '0 8 * * *'
+    - cron: '30 8 * * *'
 
 jobs:
   sync-opportunities:
@@ -20,16 +29,32 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Gate scheduled runs to 09:00 Europe/Zurich
+        # Manual runs (workflow_dispatch) always proceed. Scheduled runs proceed
+        # only at the single UTC hour that currently equals 09:00 in Zurich, so
+        # exactly one of the two cron triggers does real work regardless of DST.
+        if: github.event_name == 'schedule'
+        run: |
+          HOUR=$(TZ=Europe/Zurich date +%H)
+          echo "Europe/Zurich local hour is $HOUR"
+          if [ "$HOUR" != "09" ]; then
+            echo "Not 09:00 local time — skipping sync for this trigger."
+            echo "SKIP_SYNC=true" >> "$GITHUB_ENV"
+          fi
+
       - name: Setup Python
+        if: env.SKIP_SYNC != 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Run sync
+        if: env.SKIP_SYNC != 'true'
         run: |
           python scripts/sync_pipedrive_to_notion_opportunities.py --apply
 
       - name: Upload sync report
+        if: env.SKIP_SYNC != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: notion-opportunity-sync-report
