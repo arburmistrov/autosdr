@@ -23,7 +23,11 @@ jobs:
       PIPEDRIVE_DOMAIN: ${{ secrets.PIPEDRIVE_DOMAIN }}
       PIPEDRIVE_API_TOKEN: ${{ secrets.PIPEDRIVE_API_TOKEN }}
       NOTION_API_TOKEN: ${{ secrets.NOTION_API_TOKEN }}
-      NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+      # The NOTION_DATABASE_ID *secret* points at a stale board with the wrong
+      # schema (every run created 91 duplicate cards). The real Opportunities
+      # board sales use is hardcoded here to override it. TODO(owner): fix the
+      # NOTION_DATABASE_ID repo secret to this value, then restore the secret ref.
+      NOTION_DATABASE_ID: "31280824014881f2a90ed3ff4955ee5f"
 
     steps:
       - name: Checkout
