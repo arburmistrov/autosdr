@@ -1010,6 +1010,7 @@ def run_sync(args):
     prop_map = sync_cfg.get("properties", {})
     manual_fields = sync_cfg.get("manual_fields", [])
     preserve_on_update = sync_cfg.get("preserve_on_update", None)
+    exclude_stages = {str(s).strip().lower() for s in sync_cfg.get("exclude_stage_names", []) if str(s).strip()}
     stage_order = stage_cfg.get("stage_order", [])
     doc_hints = sync_cfg.get("doc_hints", {})
 
@@ -1055,6 +1056,7 @@ def run_sync(args):
         "created": 0,
         "updated": 0,
         "preserved": 0,
+        "excluded": 0,
         "archived": 0,
         "blocked": 0,
         "errors": [],
@@ -1222,6 +1224,14 @@ def run_sync(args):
                 "last_sync_at": now,
             }
             existing = existing_by_deal_id.get(did)
+
+            # Excluded stages (e.g. SQL/Sales Lead) are dropped from the sync:
+            # never create or update a card for them. Existing cards are left
+            # untouched for manual cleanup in Notion.
+            if final_stage.strip().lower() in exclude_stages:
+                report["excluded"] += 1
+                continue
+
             is_update = existing is not None
             payload, skipped = build_properties_payload(
                 values,
@@ -1269,7 +1279,7 @@ def run_sync(args):
     with out.open("w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
     print(f"Report written: {out}")
-    print(json.dumps({k: report[k] for k in ['mode', 'created', 'updated', 'preserved', 'blocked']}, ensure_ascii=False))
+    print(json.dumps({k: report[k] for k in ['mode', 'created', 'updated', 'preserved', 'excluded', 'archived', 'blocked']}, ensure_ascii=False))
 
 
 def main():

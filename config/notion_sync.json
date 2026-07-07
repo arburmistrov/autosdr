@@ -49,6 +49,9 @@
     "Future Confidence"
   ],
   "preserve_on_update": "*",
+  "exclude_stage_names": [
+    "SQL/Sales Lead"
+  ],
   "doc_hints": {
     "brief": [
       "brief"
