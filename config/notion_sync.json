@@ -48,6 +48,7 @@
     "Future Domain",
     "Future Confidence"
   ],
+  "preserve_on_update": "*",
   "doc_hints": {
     "brief": [
       "brief"

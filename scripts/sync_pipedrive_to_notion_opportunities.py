@@ -913,12 +913,22 @@ def build_properties_payload(
     schema_properties: Dict[str, dict],
     mapping: Dict[str, str],
     manual_fields: List[str],
+    preserve_on_update=None,
+    is_update: bool = False,
 ) -> Tuple[dict, List[str]]:
     payload = {}
     skipped = []
     manual_set = set(manual_fields or [])
+    # Seed-once fields: written when a card is first created, but never
+    # overwritten on later runs, so manual edits by sales survive the daily
+    # sync. preserve_on_update may be a list of Notion property names or "*"
+    # (all mapped fields). manual_fields are always skipped (never written).
+    preserve_all = preserve_on_update == "*"
+    preserve_set = set(preserve_on_update) if isinstance(preserve_on_update, list) else set()
     for logical_key, notion_name in mapping.items():
         if notion_name in manual_set:
+            continue
+        if is_update and (preserve_all or notion_name in preserve_set):
             continue
         if notion_name not in schema_properties:
             skipped.append(notion_name)
@@ -999,6 +1009,7 @@ def run_sync(args):
     schema_props = db.get("properties") or {}
     prop_map = sync_cfg.get("properties", {})
     manual_fields = sync_cfg.get("manual_fields", [])
+    preserve_on_update = sync_cfg.get("preserve_on_update", None)
     stage_order = stage_cfg.get("stage_order", [])
     doc_hints = sync_cfg.get("doc_hints", {})
 
@@ -1043,6 +1054,7 @@ def run_sync(args):
         "actions_planned": plan_upsert_actions(deals, existing_by_deal_id),
         "created": 0,
         "updated": 0,
+        "preserved": 0,
         "archived": 0,
         "blocked": 0,
         "errors": [],
@@ -1209,11 +1221,19 @@ def run_sync(args):
                 "presentation_link": doc_links.get("presentation", ""),
                 "last_sync_at": now,
             }
-            payload, skipped = build_properties_payload(values, schema_props, prop_map, manual_fields)
+            existing = existing_by_deal_id.get(did)
+            is_update = existing is not None
+            payload, skipped = build_properties_payload(
+                values,
+                schema_props,
+                prop_map,
+                manual_fields,
+                preserve_on_update=preserve_on_update,
+                is_update=is_update,
+            )
             for s in skipped:
                 skipped_props.add(s)
 
-            existing = existing_by_deal_id.get(did)
             if block_reason:
                 report["blocked"] += 1
                 if len(report["blocked_examples"]) < 30:
@@ -1221,14 +1241,23 @@ def run_sync(args):
 
             if args.apply:
                 if existing:
-                    notion.update_page(existing["id"], payload)
-                    report["updated"] += 1
+                    # With seed-once fields, an existing card may have nothing
+                    # left to write — skip the update entirely so manual edits
+                    # are never touched.
+                    if payload:
+                        notion.update_page(existing["id"], payload)
+                        report["updated"] += 1
+                    else:
+                        report["preserved"] += 1
                 else:
                     notion.create_page(notion_db, payload)
                     report["created"] += 1
             else:
                 if existing:
-                    report["updated"] += 1
+                    if payload:
+                        report["updated"] += 1
+                    else:
+                        report["preserved"] += 1
                 else:
                     report["created"] += 1
         except Exception as e:
@@ -1240,7 +1269,7 @@ def run_sync(args):
     with out.open("w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
     print(f"Report written: {out}")
-    print(json.dumps({k: report[k] for k in ['mode', 'created', 'updated', 'blocked']}, ensure_ascii=False))
+    print(json.dumps({k: report[k] for k in ['mode', 'created', 'updated', 'preserved', 'blocked']}, ensure_ascii=False))
 
 
 def main():
