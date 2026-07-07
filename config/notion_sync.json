@@ -49,6 +49,9 @@
     "Future Confidence"
   ],
   "preserve_on_update": "*",
+  "refresh_on_update": [
+    "Stage"
+  ],
   "exclude_stage_names": [
     "SQL/Sales Lead"
   ],

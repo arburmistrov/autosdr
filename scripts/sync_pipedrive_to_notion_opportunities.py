@@ -914,22 +914,30 @@ def build_properties_payload(
     mapping: Dict[str, str],
     manual_fields: List[str],
     preserve_on_update=None,
+    refresh_on_update=None,
     is_update: bool = False,
 ) -> Tuple[dict, List[str]]:
     payload = {}
     skipped = []
     manual_set = set(manual_fields or [])
-    # Seed-once fields: written when a card is first created, but never
-    # overwritten on later runs, so manual edits by sales survive the daily
-    # sync. preserve_on_update may be a list of Notion property names or "*"
-    # (all mapped fields). manual_fields are always skipped (never written).
+    # Controls what happens to an EXISTING card on later runs. On create,
+    # everything is written. On update:
+    #   - refresh_on_update (list): ONLY these fields are refreshed from CRM;
+    #     every other field is preserved (sales edits survive). Takes priority.
+    #   - preserve_on_update: "*" = preserve all; list = preserve those named.
+    # manual_fields are always skipped (never written, even on create).
+    refresh_set = set(refresh_on_update) if isinstance(refresh_on_update, list) and refresh_on_update else None
     preserve_all = preserve_on_update == "*"
     preserve_set = set(preserve_on_update) if isinstance(preserve_on_update, list) else set()
     for logical_key, notion_name in mapping.items():
         if notion_name in manual_set:
             continue
-        if is_update and (preserve_all or notion_name in preserve_set):
-            continue
+        if is_update:
+            if refresh_set is not None:
+                if notion_name not in refresh_set:
+                    continue
+            elif preserve_all or notion_name in preserve_set:
+                continue
         if notion_name not in schema_properties:
             skipped.append(notion_name)
             continue
@@ -1010,6 +1018,7 @@ def run_sync(args):
     prop_map = sync_cfg.get("properties", {})
     manual_fields = sync_cfg.get("manual_fields", [])
     preserve_on_update = sync_cfg.get("preserve_on_update", None)
+    refresh_on_update = sync_cfg.get("refresh_on_update", None)
     exclude_stages = {str(s).strip().lower() for s in sync_cfg.get("exclude_stage_names", []) if str(s).strip()}
     stage_order = stage_cfg.get("stage_order", [])
     doc_hints = sync_cfg.get("doc_hints", {})
@@ -1239,6 +1248,7 @@ def run_sync(args):
                 prop_map,
                 manual_fields,
                 preserve_on_update=preserve_on_update,
+                refresh_on_update=refresh_on_update,
                 is_update=is_update,
             )
             for s in skipped:
