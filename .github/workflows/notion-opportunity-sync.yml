@@ -3,12 +3,11 @@ name: Notion Opportunity Sync
 on:
   workflow_dispatch:
   schedule:
-    # GitHub cron is UTC-only, has no DST awareness, AND frequently skips runs
-    # under load. So we fire several times across the 09:00 Zurich hour and let
-    # the guard step run the sync only when Zurich local hour == 09. This gives
-    # DST-correctness (07:xx UTC = 09:xx CEST summer, 08:xx UTC = 09:xx CET winter)
-    # plus a backup trigger 30 min later so a single skipped run never loses the day.
-    # The sync is idempotent (upsert by CRM Deal ID), so 1–2 runs a morning is safe.
+    # GitHub cron is UTC-only, has no DST awareness, and can DELAY a run by hours.
+    # We fire in both the summer (07:xx UTC = 09:xx CEST) and winter
+    # (08:xx UTC = 09:xx CET) windows, each with a +30min backup so a dropped run
+    # never loses the day. The guard below picks the right one by the DST offset
+    # and WHICH cron fired — never by wall-clock, which GitHub's delays corrupt.
     - cron: '0 7 * * *'
     - cron: '30 7 * * *'
     - cron: '0 8 * * *'
@@ -33,16 +32,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Gate scheduled runs to 09:00 Europe/Zurich
-        # Manual runs (workflow_dispatch) always proceed. Scheduled runs proceed
-        # only at the single UTC hour that currently equals 09:00 in Zurich, so
-        # exactly one of the two cron triggers does real work regardless of DST.
+      - name: Gate scheduled runs to the 09:00 Europe/Zurich crons
+        # Manual runs (workflow_dispatch) always proceed. For scheduled runs we
+        # gate on the DST offset + WHICH cron fired (github.event.schedule), NOT
+        # the current hour — GitHub can run a scheduled job hours late, so a
+        # wall-clock check skips the sync on the wrong day. In summer (CEST,
+        # +0200) the 07:xx UTC crons are 09:xx local; in winter (CET, +0100) the
+        # 08:xx UTC crons are 09:xx local. Either season fires ~09:00 + 09:30.
         if: github.event_name == 'schedule'
         run: |
-          HOUR=$(TZ=Europe/Zurich date +%H)
-          echo "Europe/Zurich local hour is $HOUR"
-          if [ "$HOUR" != "09" ]; then
-            echo "Not 09:00 local time — skipping sync for this trigger."
+          OFFSET=$(TZ=Europe/Zurich date +%z)
+          SCHED="${{ github.event.schedule }}"
+          echo "Zurich UTC offset: $OFFSET; triggering cron: '$SCHED'"
+          RUN=false
+          if [ "$OFFSET" = "+0200" ]; then
+            case "$SCHED" in "0 7 * * *"|"30 7 * * *") RUN=true;; esac
+          elif [ "$OFFSET" = "+0100" ]; then
+            case "$SCHED" in "0 8 * * *"|"30 8 * * *") RUN=true;; esac
+          fi
+          if [ "$RUN" != "true" ]; then
+            echo "Not a 09:00-Zurich cron for the current season — skipping."
             echo "SKIP_SYNC=true" >> "$GITHUB_ENV"
           fi
 
